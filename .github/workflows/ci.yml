@@ -1,4 +1,4 @@
-# 第11章の完成形を検査します。章を分けたら、章ごとに同じ検査を回します。
+# 全章を同じ手順で検査します。
 name: CI
 
 on:
@@ -12,22 +12,38 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - ch02-go-idioms
+          - ch03-value-object
+          - ch04-entity
+          - ch05-domain-service
+          - ch06-aggregate-factory
+          - ch07-repository
+          - ch08-application-service
+          - ch09-layered-architecture
+          - ch10-bounded-context
+          - ch11-practical-project
+          - appendix-b-translation
     defaults:
       run:
-        working-directory: ch11-practical-project
+        working-directory: ${{ matrix.dir }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version-file: ch11-practical-project/go.mod
-          cache-dependency-path: ch11-practical-project/go.sum
+          go-version-file: ${{ matrix.dir }}/go.mod
+          # 依存の無い章には go.sum が無いので、repo 全体で指定します。
+          cache-dependency-path: "**/go.sum"
       - name: gofmt
         run: test -z "$(gofmt -l .)"
       - run: go build ./...
       - run: go vet ./...
       - run: go vet -tags=integration ./...
       - run: go test ./...
-      - name: 統合テスト（Docker で PostgreSQL を起動します）
+      - name: 統合テスト（第7章以降は Docker で PostgreSQL を起動します）
         run: go test -race -tags=integration ./...
       - name: golangci-lint
         run: |

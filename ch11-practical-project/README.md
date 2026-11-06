@@ -2,6 +2,10 @@
 
 3つのコンテキストを1つの module に置く予約システムです。Booking が予約、Catalog がレッスンと定員、Identity が会員を受け持ちます。
 
+## 第10章からの変更
+
+Identity を足しました。`Member` 集約と `contract`、Booking 側の腐敗防止層（`internal/booking/infrastructure/acl/members.go`）で、存在しない会員の予約を `400` で拒否します。初期データに会員が増えました。
+
 ## 確かめ方
 
 ```bash
@@ -20,7 +24,7 @@ make seed    # 会員とレッスンの初期データを入れる
 make run     # API と配信処理を1つのプロセスで起動する
 ```
 
-接続先は `postgres://dev:dev@localhost:5432/trainingbooking` です。ポートを変えるときは環境変数 `POSTGRES_PORT` と `DATABASE_URL` を指定します。待ち受けるアドレスは `ADDR` で変えられます。
+接続先は `postgres://dev:dev@localhost:5432/trainingbooking` です。別の章で PostgreSQL を起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` と `DATABASE_URL` を指定します。待ち受けるアドレスは `ADDR` で変えられます。
 
 初期データのレッスンの日時は、初めて `make seed` を実行した日の30日後です。もう一度流しても日時は変わりません。日が過ぎて予約できなくなったら `make reset` で作り直します（予約も消えます）。
 
