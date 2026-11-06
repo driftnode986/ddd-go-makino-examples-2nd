@@ -1,0 +1,8 @@
+  domain.BookingState{
+    ... // 5 identical fields
+    FeeYen:      3000,
+    DiscountYen: 0,
+-   Status:      "pending",
++   Status:      "confirmed",
+    Options:     {{Name: "タオル", UnitPriceYen: 200, Quantity: 1}},
+  }

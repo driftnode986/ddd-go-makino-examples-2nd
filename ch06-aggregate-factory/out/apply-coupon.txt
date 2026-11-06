@@ -1,0 +1,4 @@
+割引: 4000円 err=<nil>
+合計: 0円
+4001円の割引: discount exceeds subtotal: discount=4001 subtotal=4000
+合計: 0円

@@ -1,0 +1,2 @@
+明細→割引: 500円 <nil>
+割引→明細: discount exceeds subtotal: discount=3500 subtotal=3000

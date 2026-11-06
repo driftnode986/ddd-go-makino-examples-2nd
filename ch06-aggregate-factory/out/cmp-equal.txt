@@ -1,0 +1,2 @@
+状態: pending と confirmed
+cmp.Diff が空か: true

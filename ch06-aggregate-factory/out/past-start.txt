@@ -1,0 +1,2 @@
+終わったレッスンの予約: start is in the past: start=2030-06-01
+10:00:00 +0900 JST

@@ -106,16 +106,24 @@ func (b *Booking) Status() Status { return b.status }
 // Version は読み込んだときの版を返す。
 func (b *Booking) Version() int { return b.version }
 
+// #region options-getter
+
 // Options は明細のコピーを返す。
 func (b *Booking) Options() []BookingOption {
 	return slices.Clone(b.options)
 }
+
+// #endregion
+
+// #region total
 
 // Total は料金と明細の合計から割引を引いた額を返す。
 // 割引が小計を超えないことは setOptions と ApplyDiscount が守る。
 func (b *Booking) Total() Money {
 	return Money{yen: b.subtotal.yen - b.discount.yen}
 }
+
+// #endregion
 
 // #region equal
 
@@ -168,6 +176,8 @@ func (b *Booking) Cancel(clk Clock) error {
 	return nil
 }
 
+// #region add-option
+
 // AddOption は pending の予約に、開始の24時間前まで明細を追加する。
 func (b *Booking) AddOption(o BookingOption, clk Clock) error {
 	if b.status != StatusPending {
@@ -182,6 +192,10 @@ func (b *Booking) AddOption(o BookingOption, clk Clock) error {
 	return b.setOptions(append(slices.Clone(b.options), o))
 }
 
+// #endregion
+
+// #region apply-discount
+
 // ApplyDiscount は割引額を設定する。前の割引は置き換える。
 func (b *Booking) ApplyDiscount(discount Money) error {
 	if !b.status.active() {
@@ -194,6 +208,8 @@ func (b *Booking) ApplyDiscount(discount Money) error {
 	b.discount = discount
 	return nil
 }
+
+// #endregion
 
 // PullEvents は記録したイベントを取り出し、集約から消す。
 func (b *Booking) PullEvents() []DomainEvent {
@@ -210,6 +226,8 @@ func (b *Booking) pastDeadline(now time.Time) bool {
 }
 
 // #endregion
+
+// #region set-options
 
 // setOptions は明細の不変条件を確かめてから入れ替える。
 // 追加と再構築はここを通る。
@@ -236,6 +254,8 @@ func (b *Booking) setOptions(options []BookingOption) error {
 	b.options, b.subtotal = options, subtotal
 	return nil
 }
+
+// #endregion
 
 // #region invalid-transition
 

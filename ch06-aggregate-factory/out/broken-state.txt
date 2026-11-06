@@ -1,0 +1,3 @@
+割引が超える: invalid booking: discount exceeds subtotal:
+discount=5000 subtotal=3000
+未知の状態: invalid booking: unknown status "confirmd"

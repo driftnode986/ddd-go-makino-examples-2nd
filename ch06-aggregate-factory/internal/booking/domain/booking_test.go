@@ -294,6 +294,8 @@ func TestAddOption_AfterDeadline(t *testing.T) {
 	}
 }
 
+// #region option-limit
+
 func TestAddOption_Limit(t *testing.T) {
 	b := newBooking(t)
 	for _, name := range []string{"a", "b", "c", "d", "e"} {
@@ -310,6 +312,8 @@ func TestAddOption_Limit(t *testing.T) {
 		t.Fatalf("Options = %d件", len(b.Options()))
 	}
 }
+
+// #endregion
 
 func TestAddOption_RejectsDuplicateAndZero(t *testing.T) {
 	b := newBooking(t)
@@ -383,6 +387,8 @@ func TestTotal_SumsFeeOptionsAndDiscount(t *testing.T) {
 	}
 }
 
+// #region total-overflow
+
 func TestTotal_RejectsOverflowingOption(t *testing.T) {
 	b := newBooking(t)
 	big := option(t, "高額", 1<<62, 1)
@@ -397,6 +403,8 @@ func TestTotal_RejectsOverflowingOption(t *testing.T) {
 		t.Fatalf("Options = %d件", len(b.Options()))
 	}
 }
+
+// #endregion
 
 func TestDiscount_NeverExceedsSubtotal(t *testing.T) {
 	b := newBooking(t)

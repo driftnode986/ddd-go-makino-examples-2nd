@@ -14,6 +14,8 @@
 - 追加: `internal/booking/domain/` の `booking_option.go`・`booking_state.go`・`reconstruct_test.go`
 - 変更: `booking.go`（明細・合計・割引）、`booking_test.go`、`errors.go`
 - 依存: テストで `github.com/google/go-cmp` を使います
+- `steps/` 本文で失敗を動かすためのコード（この章だけにあります）
+- `out/` 本に載せた実行結果。`bash out/regen.sh` で作り直せます
 
 ## 動かし方
 
@@ -31,6 +33,8 @@ ok  	example.com/trainingbooking/internal/booking/domain
 ok  	example.com/trainingbooking/internal/identity/domain
 ok  	example.com/trainingbooking/internal/ids
 ```
+
+`steps/` の下のパッケージも同じように `ok` で出ます。
 
 再構築のテストだけを見るときは次を実行します。
 

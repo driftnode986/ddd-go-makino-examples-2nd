@@ -2,6 +2,8 @@ package domain
 
 import "fmt"
 
+// #region option-type
+
 // BookingOption は予約の明細である。シューズのレンタルなどを表す。
 // 同じ予約の中では名前で区別する。
 type BookingOption struct {
@@ -10,6 +12,10 @@ type BookingOption struct {
 	quantity  int
 	subtotal  Money
 }
+
+// #endregion
+
+// #region new-option
 
 // NewBookingOption は明細を作る。
 // 小計が計算できない組み合わせは拒否する。
@@ -32,6 +38,8 @@ func NewBookingOption(
 		subtotal:  subtotal,
 	}, nil
 }
+
+// #endregion
 
 // Equal は全項目が同じとき true を返す。
 func (o BookingOption) Equal(other BookingOption) bool {

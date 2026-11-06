@@ -1,0 +1,4 @@
+ch06-aggregate-factory/internal/booking/domain/zz_import.go:3:8:
+import 'example.com/trainingbooking/internal/identity/domain' is not
+allowed from list 'booking-boundary': contract 以外を import
+できません (depguard)

@@ -53,6 +53,8 @@ func (b *Booking) State() BookingState {
 	}
 }
 
+// #region reconstruct
+
 // ReconstructBooking は保存された中身から集約を組み立てる。
 // 開始が未来か、営業時間内かといった新規作成のときだけの条件は省く。
 // 保存されていてはいけない値はエラーにする。
@@ -63,6 +65,8 @@ func ReconstructBooking(s BookingState) (*Booking, error) {
 	}
 	return b, nil
 }
+
+// #endregion
 
 func rebuild(s BookingState) (*Booking, error) {
 	if s.ID.IsZero() || s.MemberID.IsZero() || s.LessonID.IsZero() {

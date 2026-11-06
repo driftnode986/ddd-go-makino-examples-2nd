@@ -23,6 +23,8 @@ func validState(t *testing.T) domain.BookingState {
 	return b.State()
 }
 
+// #region round-trip
+
 func TestReconstruct_RoundTrip(t *testing.T) {
 	want := validState(t)
 	b, err := domain.ReconstructBooking(want)
@@ -40,6 +42,8 @@ func TestReconstruct_RoundTrip(t *testing.T) {
 		t.Fatalf("Slot = %v", got)
 	}
 }
+
+// #endregion
 
 func TestReconstruct_RejectsDiscountOverSubtotal(t *testing.T) {
 	st := validState(t)
@@ -60,6 +64,8 @@ func TestReconstruct_RejectsUnknownStatus(t *testing.T) {
 	}
 }
 
+// #region allows-past
+
 func TestReconstruct_AllowsPastStart(t *testing.T) {
 	st := validState(t)
 	// 開始が過去でも、営業時間外になった予約でも読み戻せる
@@ -69,6 +75,8 @@ func TestReconstruct_AllowsPastStart(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// #endregion
 
 func TestReconstruct_RecordsNoEvent(t *testing.T) {
 	b, err := domain.ReconstructBooking(validState(t))
