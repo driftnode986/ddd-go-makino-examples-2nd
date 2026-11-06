@@ -34,18 +34,14 @@ func (q *BookingQueries) ListByMember(
 		if s.MemberID != member {
 			continue
 		}
-		b, err := domain.ReconstructBooking(s)
-		if err != nil {
-			return nil, err
-		}
 		views = append(views, application.BookingView{
 			ID:       s.ID.String(),
 			LessonID: s.LessonID.String(),
 			Start:    s.Start,
 			End:      s.End,
 			Status:   string(s.Status),
-			TotalYen: b.Total().Amount(),
-			Options:  optionViews(b),
+			TotalYen: totalYen(s),
+			Options:  optionViews(s.Options),
 		})
 	}
 	slices.SortFunc(views, func(a, b application.BookingView) int {
@@ -55,14 +51,25 @@ func (q *BookingQueries) ListByMember(
 	return views, nil
 }
 
-func optionViews(b *domain.Booking) []application.BookingOptionView {
-	options := b.Options()
+// totalYen は保存された値から合計を計算する。保存の前に検証して
+// あるので、あふれない。PostgreSQL の一覧の SQL と同じ計算である。
+func totalYen(s domain.BookingState) int64 {
+	total := s.FeeYen - s.DiscountYen
+	for _, o := range s.Options {
+		total += o.UnitPriceYen * int64(o.Quantity)
+	}
+	return total
+}
+
+func optionViews(
+	options []domain.OptionState,
+) []application.BookingOptionView {
 	views := make([]application.BookingOptionView, len(options))
 	for i, o := range options {
 		views[i] = application.BookingOptionView{
-			Name:        o.Name(),
-			Quantity:    o.Quantity(),
-			SubtotalYen: o.Subtotal().Amount(),
+			Name:        o.Name,
+			Quantity:    o.Quantity,
+			SubtotalYen: o.UnitPriceYen * int64(o.Quantity),
 		}
 	}
 	return views

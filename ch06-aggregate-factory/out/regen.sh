@@ -10,13 +10,13 @@ logs() { # 名前 パターン パッケージ
 logs negative-total TestTotalGoesNegative ./steps/separateoptions/
 logs six-options TestLimitIsBypassed ./steps/separateoptions/
 logs rewrite TestRewriteThroughGetter ./steps/leakyoptions/
-logs shallow TestCloneIsShallow ./steps/leakyoptions/
 logs apply-coupon TestApplyCoupon ./steps/pitfalls/
 logs discount-order TestDiscountAmountIsFixed ./steps/pitfalls/
 logs lost-update TestMemberChangeIsLost ./steps/embedmember/
 logs keep-update TestMemberChangeIsKept ./steps/embedmember/
-logs one-tx TestOneTxFailsWithSeatsLeft ./steps/twoaggregates/
-logs separate-tx TestSeparateTxKeepsBothBookings ./steps/twoaggregates/
+logs reread TestOneTxPassesAfterReread ./steps/twoaggregates/
+logs one-tx-load TestOneTxUnderLoad ./steps/twoaggregates/
+logs separate-load TestSeparateTxUnderLoad ./steps/twoaggregates/
 logs order TestOrderChangesResult ./steps/withoptions/
 logs past-start TestNewBookingCannotRestorePast ./steps/pitfalls/
 logs broken-row TestBrokenRowIsAccepted ./steps/rawrebuild/

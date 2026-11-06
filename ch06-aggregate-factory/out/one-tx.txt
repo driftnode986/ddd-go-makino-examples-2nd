@@ -1,3 +1,0 @@
-A: <nil>
-B: version conflict
-予約: [A] 残席: 9

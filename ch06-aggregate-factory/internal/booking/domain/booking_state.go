@@ -77,7 +77,10 @@ func rebuild(s BookingState) (*Booking, error) {
 	if !s.Status.valid() {
 		return nil, fmt.Errorf("unknown status %q", s.Status)
 	}
-	if s.Start.IsZero() || !s.End.After(s.Start) {
+	// Sub は Duration に入らない差を切り詰めるので、戻らない差も拒否する。
+	d := s.End.Sub(s.Start)
+	if s.Start.IsZero() || !s.End.After(s.Start) ||
+		!s.Start.Add(d).Equal(s.End) {
 		return nil, fmt.Errorf("slot %s to %s", s.Start, s.End)
 	}
 	fee, err := NewMoney(s.FeeYen)
@@ -99,10 +102,7 @@ func rebuild(s BookingState) (*Booking, error) {
 		id:       s.ID,
 		memberID: s.MemberID,
 		lessonID: s.LessonID,
-		slot: TimeSlot{
-			start:    s.Start,
-			duration: s.End.Sub(s.Start),
-		},
+		slot:     TimeSlot{start: s.Start, duration: d},
 		fee:      fee,
 		discount: discount,
 		status:   s.Status,

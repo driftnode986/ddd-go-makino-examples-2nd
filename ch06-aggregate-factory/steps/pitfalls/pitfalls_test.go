@@ -84,12 +84,12 @@ func TestApplyCoupon(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("割引: %d円 err=%v",
-		discount.Amount(), b.ApplyDiscount(discount))
+	err = b.ApplyDiscount(discount)
+	t.Logf("割引: %d円 err=%v", discount.Amount(), err)
 	t.Logf("合計: %d円", b.Total().Amount())
 
-	over := yen(t, 4001)
-	t.Logf("4001円の割引: %v", b.ApplyDiscount(over))
+	err = b.ApplyDiscount(yen(t, 4001))
+	t.Logf("4001円の割引: %v", err)
 	t.Logf("合計: %d円", b.Total().Amount())
 }
 

@@ -109,6 +109,9 @@ func TestReconstruct_RejectsBrokenState(t *testing.T) {
 		{"終了が開始と同じ", func(s *domain.BookingState) {
 			s.End = s.Start
 		}},
+		{"時間帯が長すぎて表せない", func(s *domain.BookingState) {
+			s.End = s.Start.AddDate(400, 0, 0)
+		}},
 		{"料金が負", func(s *domain.BookingState) {
 			s.FeeYen = -1
 		}},

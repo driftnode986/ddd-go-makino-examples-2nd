@@ -1,4 +1,0 @@
-A の席: <nil>
-B の席: version conflict
-B の席（読み直し後）: <nil>
-予約: [A B] 残席: 8

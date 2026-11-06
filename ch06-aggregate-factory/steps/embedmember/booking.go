@@ -23,6 +23,7 @@ type Booking struct {
 type Store struct {
 	members  map[string]Member
 	bookings map[string]Booking
+	byID     map[string]BookingByID
 }
 
 // NewStore は会員と予約を1件ずつ持つ Store を返す。
@@ -32,6 +33,7 @@ func NewStore(m Member, bookingID string) *Store {
 		bookings: map[string]Booking{
 			bookingID: {ID: bookingID, Status: "pending"},
 		},
+		byID: map[string]BookingByID{},
 	}
 }
 
@@ -59,8 +61,6 @@ func (s *Store) Save(b Booking) {
 
 // #endregion
 
-// #region by-id
-
 // BookingByID は会員を ID で指す予約である。
 type BookingByID struct {
 	ID       string
@@ -69,8 +69,7 @@ type BookingByID struct {
 }
 
 // SaveByID は予約だけを保存する。会員には触れない。
-func (s *Store) SaveByID(b BookingByID) {
-	s.bookings[b.ID] = Booking{ID: b.ID, Status: b.Status}
-}
+func (s *Store) SaveByID(b BookingByID) { s.byID[b.ID] = b }
 
-// #endregion
+// FindByID は SaveByID で保存した予約を読み込む。
+func (s *Store) FindByID(id string) BookingByID { return s.byID[id] }

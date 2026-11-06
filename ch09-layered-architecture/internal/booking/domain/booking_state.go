@@ -67,11 +67,14 @@ func ReconstructBooking(s BookingState) (*Booking, error) {
 // ReconstructTimeSlot は保存された開始と終了から時間帯を組み立てる。
 // 営業時間のような新規作成のときだけの条件は省く。
 func ReconstructTimeSlot(start, end time.Time) (TimeSlot, error) {
-	if start.IsZero() || !end.After(start) {
+	// Sub は Duration に入らない差を切り詰めるので、戻らない差も拒否する。
+	d := end.Sub(start)
+	if start.IsZero() || !end.After(start) ||
+		!start.Add(d).Equal(end) {
 		return TimeSlot{}, fmt.Errorf(
 			"%w: %s to %s", ErrInvalidTimeSlot, start, end)
 	}
-	return TimeSlot{start: start, duration: end.Sub(start)}, nil
+	return TimeSlot{start: start, duration: d}, nil
 }
 
 func rebuild(s BookingState) (*Booking, error) {

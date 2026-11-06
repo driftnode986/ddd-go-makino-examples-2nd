@@ -1,0 +1,4 @@
+A: <nil>
+B: version conflict
+B（読み直し後）: <nil>
+予約: [A B] 残席: 8

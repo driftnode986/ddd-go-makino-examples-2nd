@@ -49,6 +49,7 @@ func TestMemberChangeIsKept(t *testing.T) {
 	store.SaveByID(b)
 
 	t.Logf("保存後のメール: %s", store.Member("M-1").Email)
+	t.Logf("予約の会員 ID: %s", store.FindByID("B-1").MemberID)
 }
 
 // #endregion
