@@ -1,0 +1,3 @@
+読み戻しは同じか: false
+Go の比較で重なるか: true
+PostgreSQL で重なるか: false

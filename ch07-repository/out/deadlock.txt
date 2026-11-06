@@ -1,5 +1,5 @@
 deadlock detected (SQLSTATE 40P01)
-Process 82 waits for ShareLock on transaction 780; blocked by
+Process 82 waits for ShareLock on transaction 766; blocked by
 process 81.
-Process 81 waits for ShareLock on transaction 781; blocked by
+Process 81 waits for ShareLock on transaction 765; blocked by
 process 82.

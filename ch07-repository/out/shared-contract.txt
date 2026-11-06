@@ -1,6 +1,0 @@
-FAIL 2者の競合は後者が ErrVersionConflict
-FAIL 同時の Save は1者だけ成功する
-FAIL 状態を2回変更しても Save できる
-FAIL 変更なしの Save は成功する
-FAIL 同じオブジェクトの2度目の Save は競合
-FAIL 読み出した集約を変えても保存値は変わらない

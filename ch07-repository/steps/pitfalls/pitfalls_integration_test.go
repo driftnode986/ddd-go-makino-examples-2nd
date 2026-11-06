@@ -206,6 +206,29 @@ func TestConstraintStopsTheSecond(t *testing.T) {
 
 // #endregion
 
+// #region nanosecond
+
+// PostgreSQL に渡すと1ナノ秒は切り捨てられ、Go の比較と結果が分かれる。
+func TestNanosecondIsTruncated(t *testing.T) {
+	pool := dbtest.New(t)
+	end := time.Date(2030, time.June, 1, 11, 0, 0, 1, jst)
+	next := time.Date(2030, time.June, 1, 11, 0, 0, 0, jst)
+	var read time.Time
+	var overlap bool
+	err := pool.QueryRow(t.Context(), `SELECT $1::timestamptz,
+		tstzrange($2, $1) && tstzrange($3, $4)`,
+		end, next.Add(-time.Hour), next, next.Add(time.Hour),
+	).Scan(&read, &overlap)
+	if err != nil {
+		t.Fatalf("SELECT: %v", err)
+	}
+	t.Logf("読み戻しは同じか: %v", read.Equal(end))
+	t.Logf("Go の比較で重なるか: %v", next.Before(end))
+	t.Logf("PostgreSQL で重なるか: %v", overlap)
+}
+
+// #endregion
+
 // #region time-zone
 
 func TestTimeZoneAfterRoundTrip(t *testing.T) {

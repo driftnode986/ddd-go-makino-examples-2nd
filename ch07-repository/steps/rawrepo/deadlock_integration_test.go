@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -121,13 +122,17 @@ func TestConcurrentAddsWithAndWithoutLock(t *testing.T) {
 func TestDeadlockMessage(t *testing.T) {
 	pool := dbtest.New(t, postgres.Migrations)
 	tx := pgtx.NewTransactor(pool)
+	r := oneTx{rawrepo.Repo{Lock: false}, tx}
 	for range 2000 {
-		err := confirmWhileAdding(t, pool, tx, false)
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok && pgErr.Code == "40P01" {
-			t.Logf("%s (SQLSTATE %s)", pgErr.Message, pgErr.Code)
-			t.Logf("%s", pgErr.Detail)
-			return
+		addErr, saveErr := confirmWhileAdding(t, pool, tx, r)
+		for _, err := range []error{addErr, saveErr} {
+			pgErr, ok := errors.AsType[*pgconn.PgError](err)
+			if ok && pgErr.Code == "40P01" {
+				t.Logf("%s (SQLSTATE %s)",
+					pgErr.Message, pgErr.Code)
+				t.Logf("%s", pgErr.Detail)
+				return
+			}
 		}
 	}
 	t.Log("2000 回の試行でデッドロックは起きなかった")
@@ -141,22 +146,123 @@ func TestConfirmAndOverlappingAdd(t *testing.T) {
 	pool := dbtest.New(t, postgres.Migrations)
 	tx := pgtx.NewTransactor(pool)
 	for _, lock := range []bool{false, true} {
-		saves := map[string]int{}
+		r := oneTx{rawrepo.Repo{Lock: lock}, tx}
+		saves, adds := map[string]int{}, map[string]int{}
 		for range 300 {
-			saves[code(confirmWhileAdding(t, pool, tx, lock))]++
+			addErr, saveErr := confirmWhileAdding(t, pool, tx, r)
+			saves[code(saveErr)]++
+			adds[code(addErr)]++
 		}
-		t.Logf("ロック %v の確定の結果: %v", lock, saves)
+		t.Logf("ロック %v 確定: %v 重なる予約: %v", lock, saves, adds)
 	}
 }
 
 // #endregion
 
-// confirmWhileAdding は確定した Save の結果を返す。
-func confirmWhileAdding(
-	t *testing.T, pool *pgxpool.Pool, tx *pgtx.Transactor, lock bool,
+// #region retry
+
+// ロックを取らず、40P01 を1回だけ再試行する形を動かす。
+func TestRetryWithoutLock(t *testing.T) {
+	pool := dbtest.New(t, postgres.Migrations)
+	tx := pgtx.NewTransactor(pool)
+	r := rawrepo.Repo{Lock: false}
+	saves, adds := map[string]int{}, map[string]int{}
+	var retries atomic.Int64
+	var slowest atomic.Int64
+	for range 100 {
+		addErr, saveErr := confirmWhileAdding(t, pool, tx,
+			retryOnce{r, tx, &retries, &slowest})
+		saves[code(saveErr)]++
+		adds[code(addErr)]++
+	}
+	t.Logf("確定: %v 重なる予約: %v", saves, adds)
+	t.Logf("再試行: %d 回 1回の最長: 約 %.0f 秒",
+		retries.Load(), time.Duration(slowest.Load()).Seconds())
+}
+
+// #endregion
+
+// retryOnce は 40P01 のときに1回だけ呼び直す。
+type retryOnce struct {
+	r       rawrepo.Repo
+	tx      *pgtx.Transactor
+	retries *atomic.Int64
+	slowest *atomic.Int64
+}
+
+func (o retryOnce) run(
+	ctx context.Context, fn func(context.Context) error,
 ) error {
+	begin := time.Now()
+	defer func() {
+		d := int64(time.Since(begin))
+		for {
+			cur := o.slowest.Load()
+			if d <= cur || o.slowest.CompareAndSwap(cur, d) {
+				return
+			}
+		}
+	}()
+	err := o.tx.Do(ctx, fn)
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if !ok || pgErr.Code != "40P01" {
+		return err
+	}
+	o.retries.Add(1)
+	return o.tx.Do(ctx, fn)
+}
+
+func (o retryOnce) add(
+	ctx context.Context, b *domain.Booking,
+) error {
+	return o.run(ctx, func(ctx context.Context) error {
+		return o.r.Add(ctx, b)
+	})
+}
+
+func (o retryOnce) save(
+	ctx context.Context, b *domain.Booking,
+) error {
+	return o.run(ctx, func(ctx context.Context) error {
+		return o.r.Save(ctx, b)
+	})
+}
+
+// saver は Add と Save を Tx の中で実行する。
+type saver interface {
+	add(context.Context, *domain.Booking) error
+	save(context.Context, *domain.Booking) error
+}
+
+// oneTx は Add と Save をそれぞれ1つの Tx で実行する。
+type oneTx struct {
+	r  rawrepo.Repo
+	tx *pgtx.Transactor
+}
+
+func (o oneTx) add(
+	ctx context.Context, b *domain.Booking,
+) error {
+	return o.tx.Do(ctx, func(ctx context.Context) error {
+		return o.r.Add(ctx, b)
+	})
+}
+
+func (o oneTx) save(
+	ctx context.Context, b *domain.Booking,
+) error {
+	return o.tx.Do(ctx, func(ctx context.Context) error {
+		return o.r.Save(ctx, b)
+	})
+}
+
+// confirmWhileAdding は重なる予約の Add と、確定の Save を同時に
+// 実行して、それぞれの結果を返す。
+func confirmWhileAdding(
+	t *testing.T, pool *pgxpool.Pool, tx *pgtx.Transactor,
+	target saver,
+) (addErr, saveErr error) {
 	t.Helper()
-	r := rawrepo.Repo{Lock: lock}
 	repo := postgres.NewBookingRepository(pool)
 	member := ids.NewID[ids.MemberMarker]()
 	first := newBooking(t, member)
@@ -174,21 +280,15 @@ func confirmWhileAdding(
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		<-start
-		_ = tx.Do(t.Context(), func(ctx context.Context) error {
-			return r.Add(ctx, second)
-		})
+		addErr = target.add(t.Context(), second)
 	})
-	var saveErr error
 	wg.Go(func() {
 		<-start
-		saveErr = tx.Do(t.Context(),
-			func(ctx context.Context) error {
-				return r.Save(ctx, first)
-			})
+		saveErr = target.save(t.Context(), first)
 	})
 	close(start)
 	wg.Wait()
-	return saveErr
+	return addErr, saveErr
 }
 
 // #region other-member

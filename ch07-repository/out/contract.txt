@@ -1,2 +1,2 @@
-ok memory 0.724s
-ok postgres 4.033s
+ok memory 0.220s
+ok postgres 3.888s

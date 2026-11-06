@@ -1,2 +1,0 @@
- public | booking_options | table | dev
- public | bookings | table | dev
