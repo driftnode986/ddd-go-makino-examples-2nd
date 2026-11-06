@@ -101,6 +101,16 @@ func (h *handlers) writeInvalid(
 	})
 }
 
+// writeInternal は原因を含まない 500 を返す。
+func (h *handlers) writeInternal(
+	w http.ResponseWriter, r *http.Request,
+) {
+	h.writeJSON(w, r, http.StatusInternalServerError, errorResponse{
+		Kind:    application.KindInternal,
+		Message: messageInternal,
+	})
+}
+
 // writeError は Kind をステータスに変える。5xx の本文に原因を
 // 出さず、原因はログに記録する。
 func (h *handlers) writeError(
