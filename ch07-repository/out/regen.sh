@@ -57,3 +57,8 @@ rm -f "$tmp"
 make up >/dev/null 2>&1
 docker compose exec -T postgres psql -U dev -d trainingbooking -c '\dt' | grep -E 'bookings|booking_options' | sed -E 's/ +/ /g' | shape >out/dt.txt
 make down >/dev/null 2>&1
+# コンテナの起動に失敗したログを本に載せない。
+if grep -l 'コンテナの起動\|管理用の接続' out/*.txt; then
+	echo "コンテナの起動に失敗したログがあります。実行し直します" >&2
+	exit 1
+fi

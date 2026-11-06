@@ -1,6 +1,4 @@
-コンテナの起動: run postgres: generic container: start container:
-started hook: wait until ready: mapped port: check target: retries:
-9, port: "invalid port", last err: get state: Get
-"http://%2Fvar%2Frun%2Fdocker.sock/v1.54/containers/ea487578c1e42a221
-65288f0e1e9dfcf8666c30ec5da11e456b4420628b64c6b/json": context
-deadline exceeded
+A: <nil>
+B: booking time slot overlaps: ERROR: conflicting key value violates
+exclusion constraint "bookings_no_overlap" (SQLSTATE 23P01)
+B は ErrOverlap か: true
