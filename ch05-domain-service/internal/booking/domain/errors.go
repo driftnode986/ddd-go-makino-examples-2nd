@@ -11,5 +11,9 @@ var (
 	ErrInvalidCoupon     = errors.New("invalid coupon")
 )
 
+// #region overlap-error
+
 // ErrOverlap は同じ会員の時間帯が重なることを表す。
 var ErrOverlap = errors.New("booking time slot overlaps")
+
+// #endregion
