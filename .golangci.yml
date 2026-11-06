@@ -115,6 +115,37 @@ linters:
               desc: domain から外側のレイヤーを import できません
             - pkg: github.com/jackc/pgx/
               desc: domain から pgx を import できません
+        # contract は他のコンテキストに公開する型だけを置きます。
+        # 内側のレイヤーに依存すると、相手に中身が漏れます。
+        contract-layer:
+          list-mode: lax
+          files:
+            - "**/internal/*/contract/**"
+          deny:
+            - pkg: example.com/trainingbooking/internal/booking/domain
+              desc: contract から内側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/booking/application
+              desc: contract から内側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/catalog/domain
+              desc: contract から内側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/catalog/application
+              desc: contract から内側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/identity/domain
+              desc: contract から内側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/identity/application
+              desc: contract から内側のレイヤーを import できません
+        # platform はコンテキストを知りません。
+        platform-layer:
+          list-mode: lax
+          files:
+            - "**/internal/platform/**"
+          deny:
+            - pkg: example.com/trainingbooking/internal/booking
+              desc: platform からコンテキストを import できません
+            - pkg: example.com/trainingbooking/internal/catalog
+              desc: platform からコンテキストを import できません
+            - pkg: example.com/trainingbooking/internal/identity
+              desc: platform からコンテキストを import できません
         # Tx の取り決めは契約テストと infrastructure が使います。
         # domain は Tx を知りません。
         domain-no-txn:

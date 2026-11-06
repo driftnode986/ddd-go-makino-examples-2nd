@@ -16,6 +16,11 @@ services:
           migrations/0001_create_bookings.sql"
         target: /docker-entrypoint-initdb.d/0001_create_bookings.sql
         read_only: true
+      - type: bind
+        source: "./internal/catalog/infrastructure/postgres/\
+          migrations/0002_create_lessons.sql"
+        target: /docker-entrypoint-initdb.d/0002_create_lessons.sql
+        read_only: true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dev -d trainingbooking"]
       interval: 5s
