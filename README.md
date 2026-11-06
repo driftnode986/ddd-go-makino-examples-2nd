@@ -24,7 +24,6 @@
 - `ch09-layered-architecture/` 第9章。HTTP と `main`。`go run` で予約が `pending` で返ります
 - `ch10-bounded-context/` 第10章。Catalog とイベントの配信。予約が `confirmed` まで進みます
 - `ch11-practical-project/` 第11章。Identity を足した完成形
-- `appendix-b-translation/` 付録B。Kotlin / Spring との対訳に要る最小の例
 
 ## 確かめ方
 

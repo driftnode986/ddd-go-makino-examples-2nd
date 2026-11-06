@@ -26,7 +26,6 @@ jobs:
           - ch09-layered-architecture
           - ch10-bounded-context
           - ch11-practical-project
-          - appendix-b-translation
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
