@@ -147,7 +147,7 @@ func (u *PlaceBooking) newBooking(
 	}
 	err = addOptions(b, in.Options, terms.Options, u.clock)
 	if err != nil {
-		return nil, invalid("オプションの指定が正しくありません", err)
+		return nil, translate(err)
 	}
 	if err := u.applyCoupon(ctx, b, in.CouponCode); err != nil {
 		return nil, err

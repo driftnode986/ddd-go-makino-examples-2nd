@@ -271,9 +271,12 @@ func TestPlaceBooking_OptionsTooLateIsKindInvalid(t *testing.T) {
 		{Name: "シューズ", Quantity: 1},
 	}
 	_, err := place.Execute(t.Context(), in)
-	wantKind(t, err, application.KindInvalid)
+	got := wantKind(t, err, application.KindInvalid)
 	if !errors.Is(err, domain.ErrChangeTooLate) {
 		t.Errorf("err = %v", err)
+	}
+	if got.Message != "オプションを追加できる期限を過ぎています" {
+		t.Errorf("Message = %s", got.Message)
 	}
 	// オプションが無ければ同じ時刻でも予約できる
 	in.Options = nil
@@ -307,6 +310,33 @@ func TestPlaceBooking_DirectoryFailureIsKindInternal(t *testing.T) {
 	wantKind(t, err, application.KindInternal)
 	if !errors.Is(err, boom) {
 		t.Errorf("err = %v", err)
+	}
+}
+
+// 数量は入力で受けるので、金額のあふれは入力の誤りである。
+func TestPlaceBooking_MoneyOverflowIsKindInvalid(t *testing.T) {
+	cases := []struct {
+		name     string
+		quantity int
+		coupon   string
+	}{
+		{name: "明細の小計", quantity: 1 << 60},
+		{name: "割引の計算", quantity: 1 << 54, coupon: "WELCOME10"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			d := newMemoryDeps()
+			in := placeInput()
+			in.Options = []application.OptionInput{
+				{Name: "シューズ", Quantity: c.quantity},
+			}
+			in.CouponCode = c.coupon
+			_, err := newPlace(t, d).Execute(t.Context(), in)
+			wantKind(t, err, application.KindInvalid)
+			if !errors.Is(err, domain.ErrMoneyOverflow) {
+				t.Errorf("err = %v", err)
+			}
+		})
 	}
 }
 
