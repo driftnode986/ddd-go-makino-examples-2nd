@@ -10,29 +10,33 @@ import (
 
 // ReserveSeatInput は席の確保の入力である。
 type ReserveSeatInput struct {
+	EventID   string
 	LessonID  ids.LessonID
 	BookingID ids.BookingID
 }
 
 // ReserveSeat は予約の席を確保する。
 type ReserveSeat struct {
-	repo   domain.LessonRepository
-	outbox OutboxWriter
-	tx     Transactor
-	clock  domain.Clock
+	repo      domain.LessonRepository
+	outbox    OutboxWriter
+	processed ProcessedEvents
+	tx        Transactor
+	clock     domain.Clock
 }
 
 // NewReserveSeat は ReserveSeat を返す。
 func NewReserveSeat(
 	repo domain.LessonRepository,
 	outbox OutboxWriter,
+	processed ProcessedEvents,
 	tx Transactor,
 	clock domain.Clock,
 ) *ReserveSeat {
-	return &ReserveSeat{repo, outbox, tx, clock}
+	return &ReserveSeat{repo, outbox, processed, tx, clock}
 }
 
-// Execute は席を確保し、結果のイベントを同じ Tx で書く。
+// Execute は処理済みの記録・席の保存・結果のイベントを同じ Tx で
+// 書く。処理済みのイベントなら何もせず成功を返す。
 //
 // 満席のときは ErrLessonFull、レッスンが無いときは ErrNotFound を
 // 返す。どちらも拒否のイベントはコミットされている。版の競合は
@@ -43,7 +47,15 @@ func (u *ReserveSeat) Execute(
 	var outcome error
 	err := retryOnConflict(ctx, func() error {
 		return u.tx.Do(ctx, func(ctx context.Context) error {
-			var err error
+			first, err := u.processed.MarkProcessed(
+				ctx, Subscriber, in.EventID)
+			if err != nil {
+				return err
+			}
+			outcome = nil
+			if !first {
+				return nil
+			}
 			outcome, err = u.reserve(ctx, in)
 			return err
 		})

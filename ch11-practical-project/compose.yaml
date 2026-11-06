@@ -21,6 +21,11 @@ services:
           migrations/0002_create_lessons.sql"
         target: /docker-entrypoint-initdb.d/0002_create_lessons.sql
         read_only: true
+      - type: bind
+        source: "./internal/platform/outbox/\
+          migrations/0003_create_outbox.sql"
+        target: /docker-entrypoint-initdb.d/0003_create_outbox.sql
+        read_only: true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dev -d trainingbooking"]
       interval: 5s

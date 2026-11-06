@@ -13,14 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	bookingapp "example.com/trainingbooking/internal/booking/application"
-	"example.com/trainingbooking/internal/booking/infrastructure/acl"
-	bookingpg "example.com/trainingbooking/internal/booking/infrastructure/postgres"
-	"example.com/trainingbooking/internal/booking/presentation"
-	catalogapp "example.com/trainingbooking/internal/catalog/application"
-	catalogpg "example.com/trainingbooking/internal/catalog/infrastructure/postgres"
 	"example.com/trainingbooking/internal/platform/logging"
-	"example.com/trainingbooking/internal/platform/txn/pgtx"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -60,33 +53,28 @@ func run(logger *slog.Logger) error {
 		return fmt.Errorf("ping: %w", err)
 	}
 
+	a := newApp(appConfig{
+		pool:   pool,
+		logger: logger,
+		clock:  systemClock{},
+	})
+	relayDone := make(chan error, 1)
+	go func() { relayDone <- a.relay.Run(ctx) }()
+
 	server := &http.Server{
 		Addr:              cmp.Or(os.Getenv("ADDR"), defaultAddr),
-		Handler:           newRouter(pool, logger),
+		Handler:           a.router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	return serve(ctx, server, logger)
-}
-
-func newRouter(
-	pool *pgxpool.Pool, logger *slog.Logger,
-) http.Handler {
-	repo := bookingpg.NewBookingRepository(pool)
-	tx := pgtx.NewTransactor(pool)
-	outbox := bookingpg.NewLoggingOutbox(logger)
-	clock := systemClock{}
-	lessons := acl.NewLessonCatalog(
-		catalogapp.NewLessonReader(
-			catalogpg.NewLessonRepository(pool)),
-		time.FixedZone("JST", 9*60*60))
-	return presentation.NewRouter(presentation.Deps{
-		Place: bookingapp.NewPlaceBooking(
-			repo, outbox, tx, clock, lessons),
-		Cancel: bookingapp.NewCancelBooking(
-			repo, outbox, tx, clock),
-		Queries: bookingpg.NewBookingQueries(pool),
-		Logger:  logger,
-	})
+	err = serve(ctx, server, logger)
+	// サーバーが先に止まっても配信処理を止め、終わるまで待つ。
+	// 接続を閉じるのはその後である
+	stop()
+	if relayErr := <-relayDone; !errors.Is(
+		relayErr, context.Canceled) {
+		err = errors.Join(err, relayErr)
+	}
+	return err
 }
 
 // serve は ctx が終わるまで受け付け、処理中のリクエストを待って止まる。

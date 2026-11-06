@@ -10,25 +10,30 @@ import (
 
 // ReleaseSeatInput は席を戻す入力である。
 type ReleaseSeatInput struct {
+	EventID   string
 	LessonID  ids.LessonID
 	BookingID ids.BookingID
 }
 
 // ReleaseSeat はキャンセルされた予約の席を戻す。
 type ReleaseSeat struct {
-	repo domain.LessonRepository
-	tx   Transactor
+	repo      domain.LessonRepository
+	processed ProcessedEvents
+	tx        Transactor
 }
 
 // NewReleaseSeat は ReleaseSeat を返す。
 func NewReleaseSeat(
-	repo domain.LessonRepository, tx Transactor,
+	repo domain.LessonRepository,
+	processed ProcessedEvents,
+	tx Transactor,
 ) *ReleaseSeat {
-	return &ReleaseSeat{repo, tx}
+	return &ReleaseSeat{repo, processed, tx}
 }
 
-// Execute は席を戻す。レッスンが無ければ戻す席も無いので成功にする。
-// 版の競合は読み直して判定し直す。Tx の中から呼ばない。
+// Execute は処理済みの記録と席の保存を同じ Tx で書く。処理済みの
+// イベントなら何もしない。レッスンが無ければ戻す席も無いので成功に
+// する。版の競合は読み直して判定し直す。Tx の中から呼ばない。
 func (u *ReleaseSeat) Execute(
 	ctx context.Context, in ReleaseSeatInput,
 ) error {
@@ -42,6 +47,11 @@ func (u *ReleaseSeat) Execute(
 func (u *ReleaseSeat) release(
 	ctx context.Context, in ReleaseSeatInput,
 ) error {
+	first, err := u.processed.MarkProcessed(
+		ctx, Subscriber, in.EventID)
+	if err != nil || !first {
+		return err
+	}
 	l, err := u.repo.FindByID(ctx, in.LessonID)
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil

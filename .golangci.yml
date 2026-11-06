@@ -156,6 +156,8 @@ linters:
           deny:
             - pkg: example.com/trainingbooking/internal/platform/txn
               desc: domain から Tx を import できません
+            - pkg: example.com/trainingbooking/internal/platform/outbox
+              desc: domain は outbox を知りません
         # application は実装を知りません。テストは実装を組み立てて使います。
         application-layer:
           list-mode: lax
@@ -187,6 +189,8 @@ linters:
               desc: application から presentation を import できません
             - pkg: example.com/trainingbooking/internal/identity/presentation/
               desc: application から presentation を import できません
+            - pkg: example.com/trainingbooking/internal/platform/outbox
+              desc: application は outbox の実装を知りません
             - pkg: example.com/trainingbooking/internal/platform/txn/pgtx
               desc: application から Tx の実装を import できません
             - pkg: example.com/trainingbooking/internal/platform/txn/memtx

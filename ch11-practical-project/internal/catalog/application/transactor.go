@@ -18,3 +18,14 @@ type Transactor interface {
 type OutboxWriter interface {
 	Append(ctx context.Context, events ...domain.DomainEvent) error
 }
+
+// ProcessedEvents は処理したイベントの記録である。集約の保存と
+// 同じ Tx で書く。初めてのイベントなら true を返す。
+type ProcessedEvents interface {
+	MarkProcessed(
+		ctx context.Context, subscriber, eventID string,
+	) (bool, error)
+}
+
+// Subscriber は処理済みの記録に使う購読者の名前である。
+const Subscriber = "catalog"

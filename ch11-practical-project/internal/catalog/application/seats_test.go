@@ -4,40 +4,45 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"uuid"
 
 	"example.com/trainingbooking/internal/catalog/application"
 	"example.com/trainingbooking/internal/catalog/contract"
 	"example.com/trainingbooking/internal/catalog/domain"
 	"example.com/trainingbooking/internal/catalog/infrastructure/memory"
 	"example.com/trainingbooking/internal/ids"
+	"example.com/trainingbooking/internal/platform/outbox"
 	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
 type memoryDeps struct {
-	repo   *memory.LessonRepository
-	outbox *memory.OutboxWriter
-	tx     *memtx.Transactor
+	repo      *memory.LessonRepository
+	outbox    *memory.OutboxWriter
+	processed *outbox.MemoryProcessedEvents
+	tx        *memtx.Transactor
 }
 
 func newDeps() memoryDeps {
 	return memoryDeps{
-		repo:   memory.NewLessonRepository(),
-		outbox: memory.NewOutboxWriter(),
-		tx:     memtx.NewTransactor(),
+		repo:      memory.NewLessonRepository(),
+		outbox:    memory.NewOutboxWriter(),
+		processed: outbox.NewMemoryProcessedEvents(),
+		tx:        memtx.NewTransactor(),
 	}
 }
 
 func (d memoryDeps) reserve() *application.ReserveSeat {
 	return application.NewReserveSeat(
-		d.repo, d.outbox, d.tx, fixedClock{now})
+		d.repo, d.outbox, d.processed, d.tx, fixedClock{now})
 }
 
 func (d memoryDeps) release() *application.ReleaseSeat {
-	return application.NewReleaseSeat(d.repo, d.tx)
+	return application.NewReleaseSeat(d.repo, d.processed, d.tx)
 }
 
 func reserveInput(lesson ids.LessonID) application.ReserveSeatInput {
 	return application.ReserveSeatInput{
+		EventID:   uuid.New().String(),
 		LessonID:  lesson,
 		BookingID: ids.NewID[ids.BookingMarker](),
 	}
@@ -130,7 +135,7 @@ func TestReserveSeat_RetriesVersionConflict(t *testing.T) {
 	lesson := addLesson(t, d.repo, d.tx, 1)
 	repo := &conflictOnce{LessonRepository: d.repo}
 	reserve := application.NewReserveSeat(
-		repo, d.outbox, d.tx, fixedClock{now})
+		repo, d.outbox, d.processed, d.tx, fixedClock{now})
 	err := reserve.Execute(t.Context(), reserveInput(lesson))
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -162,7 +167,7 @@ func TestReserveSeat_GivesUpWithConflict(t *testing.T) {
 	lesson := addLesson(t, d.repo, d.tx, 1)
 	repo := &alwaysConflict{LessonRepository: d.repo}
 	reserve := application.NewReserveSeat(
-		repo, d.outbox, d.tx, fixedClock{now})
+		repo, d.outbox, d.processed, d.tx, fixedClock{now})
 	err := reserve.Execute(t.Context(), reserveInput(lesson))
 	if !errors.Is(err, domain.ErrVersionConflict) {
 		t.Fatalf("err = %v", err)
@@ -186,6 +191,7 @@ func TestReleaseSeat_FreesTheSeat(t *testing.T) {
 		t.Fatalf("Reserve: %v", err)
 	}
 	release := application.ReleaseSeatInput{
+		EventID:   uuid.New().String(),
 		LessonID:  lesson,
 		BookingID: in.BookingID,
 	}
@@ -205,6 +211,7 @@ func TestReleaseSeat_MissingLessonIsNoOp(t *testing.T) {
 	d := newDeps()
 	err := d.release().Execute(t.Context(),
 		application.ReleaseSeatInput{
+			EventID:   uuid.New().String(),
 			LessonID:  ids.NewID[ids.LessonMarker](),
 			BookingID: ids.NewID[ids.BookingMarker](),
 		})
@@ -234,5 +241,28 @@ func TestLessonReader_MissingIsContractError(t *testing.T) {
 		t.Context(), ids.NewID[ids.LessonMarker]())
 	if !errors.Is(err, contract.ErrLessonNotFound) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// 処理済みの記録で止めるのは同じイベントである。別のイベントなら
+// 処理して、席を2重に取らないのは Lesson の役割である。
+func TestReserveSeat_SameEventRunsOnce(t *testing.T) {
+	d := newDeps()
+	lesson := addLesson(t, d.repo, d.tx, 2)
+	in := reserveInput(lesson)
+	for range 2 {
+		if err := d.reserve().Execute(t.Context(), in); err != nil {
+			t.Fatalf("Execute: %v", err)
+		}
+	}
+	if len(d.outbox.Events()) != 1 {
+		t.Errorf("events = %v", d.outbox.Events())
+	}
+	in.EventID = uuid.New().String()
+	if err := d.reserve().Execute(t.Context(), in); err != nil {
+		t.Fatalf("別のイベント: %v", err)
+	}
+	if n := seats(t, d.repo, lesson); n != 1 {
+		t.Errorf("seats = %d", n)
 	}
 }
