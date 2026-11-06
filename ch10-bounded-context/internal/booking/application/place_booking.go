@@ -23,6 +23,8 @@ type PlaceBookingInput struct {
 	MemberID string
 	LessonID string
 	Options  []OptionInput
+	// CouponCode は任意である。割引率は受け取らない。
+	CouponCode string
 }
 
 // PlaceBookingOutput は予約の結果である。
@@ -38,6 +40,7 @@ type PlaceBooking struct {
 	outbox  OutboxWriter
 	tx      Transactor
 	clock   domain.Clock
+	coupons Coupons
 	lessons LessonCatalog
 }
 
@@ -48,9 +51,12 @@ func NewPlaceBooking(
 	outbox OutboxWriter,
 	tx Transactor,
 	clock domain.Clock,
+	coupons Coupons,
 	lessons LessonCatalog,
 ) *PlaceBooking {
-	return &PlaceBooking{repo, queries, outbox, tx, clock, lessons}
+	return &PlaceBooking{
+		repo, queries, outbox, tx, clock, coupons, lessons,
+	}
 }
 
 // Execute は予約を pending で保存し、同じ Tx で BookingPlaced を
@@ -134,7 +140,35 @@ func (u *PlaceBooking) newBooking(
 	if err != nil {
 		return nil, invalid("オプションの指定が正しくありません", err)
 	}
+	if err := u.applyCoupon(ctx, b, in.CouponCode); err != nil {
+		return nil, err
+	}
 	return b, nil
+}
+
+// applyCoupon はコードの Coupon で割引を計算して適用する。
+// コードが空なら何もしない。割引率は入力で受け取らない。
+func (u *PlaceBooking) applyCoupon(
+	ctx context.Context, b *domain.Booking, code string,
+) error {
+	if code == "" {
+		return nil
+	}
+	coupon, err := u.coupons.Find(ctx, code)
+	if errors.Is(err, ErrCouponNotFound) {
+		return invalid("クーポンのコードが正しくありません", err)
+	}
+	if err != nil {
+		return translate(err)
+	}
+	discount, err := domain.CalculateDiscount(b.Total(), coupon)
+	if err != nil {
+		return translate(err)
+	}
+	if err := b.ApplyDiscount(discount); err != nil {
+		return translate(err)
+	}
+	return nil
 }
 
 // addOptions は選んだオプションを、レッスンの単価で明細にする。

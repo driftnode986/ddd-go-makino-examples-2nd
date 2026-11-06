@@ -8,6 +8,7 @@ import (
 	bookingapp "example.com/trainingbooking/internal/booking/application"
 	bookingcontract "example.com/trainingbooking/internal/booking/contract"
 	"example.com/trainingbooking/internal/booking/infrastructure/acl"
+	"example.com/trainingbooking/internal/booking/infrastructure/fixed"
 	bookingpg "example.com/trainingbooking/internal/booking/infrastructure/postgres"
 	"example.com/trainingbooking/internal/booking/presentation"
 	catalogapp "example.com/trainingbooking/internal/catalog/application"
@@ -79,7 +80,8 @@ func newApp(cfg appConfig) *app {
 
 	router := presentation.NewRouter(presentation.Deps{
 		Place: bookingapp.NewPlaceBooking(
-			bookings, queries, writer, tx, cfg.clock, catalog),
+			bookings, queries, writer, tx, cfg.clock,
+			fixed.NewCoupons(), catalog),
 		Cancel: bookingapp.NewCancelBooking(
 			bookings, writer, tx, cfg.clock),
 		Queries: queries,

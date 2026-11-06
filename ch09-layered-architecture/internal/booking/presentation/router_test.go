@@ -14,6 +14,7 @@ import (
 
 	"example.com/trainingbooking/internal/booking/application"
 	"example.com/trainingbooking/internal/booking/domain"
+	"example.com/trainingbooking/internal/booking/infrastructure/fixed"
 	"example.com/trainingbooking/internal/booking/infrastructure/memory"
 	"example.com/trainingbooking/internal/booking/presentation"
 	"example.com/trainingbooking/internal/ids"
@@ -555,6 +556,7 @@ func TestRouter_WithUseCases(t *testing.T) {
 	router := presentation.NewRouter(presentation.Deps{
 		Place: application.NewPlaceBooking(
 			repo, memory.NewBookingQueries(repo), outbox, tx, clock,
+			fixed.NewCoupons(),
 			application.LessonTerms{Fee: fee, Location: jst}),
 		Cancel: application.NewCancelBooking(
 			repo, outbox, tx, clock),

@@ -19,7 +19,8 @@ func newPlace(
 ) *application.PlaceBooking {
 	t.Helper()
 	return application.NewPlaceBooking(
-		d.repo, d.queries, d.outbox, d.tx, fixedClock{now}, terms(t))
+		d.repo, d.queries, d.outbox, d.tx, fixedClock{now},
+		d.coupons, terms(t))
 }
 
 func TestPlaceBooking_SavesPendingAndRecordsEvent(t *testing.T) {
@@ -153,7 +154,8 @@ func TestPlaceBooking_RepositoryFailureKeepsCause(t *testing.T) {
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(
 		failingRepository{d.repo, fmt.Errorf("add: %w", boom)},
-		d.queries, d.outbox, d.tx, fixedClock{now}, terms(t))
+		d.queries, d.outbox, d.tx, fixedClock{now}, d.coupons,
+		terms(t))
 
 	_, err := place.Execute(t.Context(), placeInput())
 	got := wantKind(t, err, application.KindInternal)
@@ -171,7 +173,7 @@ func TestPlaceBooking_NoTransactionIsKindInternal(t *testing.T) {
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(
 		failingRepository{d.repo, txn.ErrNoTransaction}, d.queries,
-		d.outbox, d.tx, fixedClock{now}, terms(t))
+		d.outbox, d.tx, fixedClock{now}, d.coupons, terms(t))
 	_, err := place.Execute(t.Context(), placeInput())
 	wantKind(t, err, application.KindInternal)
 }
@@ -192,7 +194,7 @@ func TestPlaceBooking_OutboxFailureRollsBack(t *testing.T) {
 	boom := errors.New("outbox")
 	place := application.NewPlaceBooking(
 		d.repo, d.queries, failingOutbox{boom}, d.tx,
-		fixedClock{now}, terms(t))
+		fixedClock{now}, d.coupons, terms(t))
 	in := placeInput()
 	_, err := place.Execute(t.Context(), in)
 	wantKind(t, err, application.KindInternal)
@@ -217,7 +219,7 @@ func TestPlaceBooking_DetectsOverlapBeforeAdd(t *testing.T) {
 	boom := errors.New("add")
 	place := application.NewPlaceBooking(
 		failingRepository{d.repo, boom}, d.queries, d.outbox, d.tx,
-		fixedClock{now}, terms(t))
+		fixedClock{now}, d.coupons, terms(t))
 	in.LessonID = ids.NewID[ids.LessonMarker]().String()
 	_, err = place.Execute(t.Context(), in)
 	wantKind(t, err, application.KindConflict)
@@ -257,5 +259,83 @@ func TestPlaceBooking_QueryFailureIsKindInternal(t *testing.T) {
 	}
 	if len(d.outbox.Events()) != 0 {
 		t.Errorf("events = %v", d.outbox.Events())
+	}
+}
+
+// findBooking は結果の ID で保存された予約を読む。
+func findBooking(
+	t *testing.T, d memoryDeps, out application.PlaceBookingOutput,
+) *domain.Booking {
+	t.Helper()
+	id, err := ids.ParseID[ids.BookingMarker](out.BookingID)
+	if err != nil {
+		t.Fatalf("ParseID: %v", err)
+	}
+	b, err := d.repo.FindByID(t.Context(), id)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	return b
+}
+
+// 割合は入力で受け取らず、コードから引いた Coupon で計算する。
+func TestPlaceBooking_CouponDiscountsTotal(t *testing.T) {
+	d := newMemoryDeps()
+	in := placeInput()
+	in.CouponCode = "WELCOME10"
+	out, err := newPlace(t, d).Execute(t.Context(), in)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	got := findBooking(t, d, out).Total().Amount()
+	if got != 2700 {
+		t.Errorf("Total = %d", got)
+	}
+}
+
+// コードが無ければ Coupons を呼ばない。呼べば boom になる。
+func TestPlaceBooking_NoCouponCodeSkipsLookup(t *testing.T) {
+	d := newMemoryDeps()
+	d.coupons = failingCoupons{errors.New("boom")}
+	out, err := newPlace(t, d).Execute(t.Context(), placeInput())
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	got := findBooking(t, d, out).Total().Amount()
+	if got != 3000 {
+		t.Errorf("Total = %d", got)
+	}
+}
+
+func TestPlaceBooking_UnknownCouponIsKindInvalid(t *testing.T) {
+	d := newMemoryDeps()
+	in := placeInput()
+	in.CouponCode = "UNKNOWN"
+	_, err := newPlace(t, d).Execute(t.Context(), in)
+	wantKind(t, err, application.KindInvalid)
+	if !errors.Is(err, application.ErrCouponNotFound) {
+		t.Errorf("err = %v", err)
+	}
+	if len(d.outbox.Events()) != 0 {
+		t.Errorf("events = %v", d.outbox.Events())
+	}
+	// 拒否した予約は残らないので、同じ時間帯をもう一度予約できる
+	in.CouponCode = ""
+	_, err = newPlace(t, d).Execute(t.Context(), in)
+	if err != nil {
+		t.Errorf("予約が残った: %v", err)
+	}
+}
+
+func TestPlaceBooking_CouponFailureIsKindInternal(t *testing.T) {
+	d := newMemoryDeps()
+	boom := errors.New("coupons")
+	d.coupons = failingCoupons{boom}
+	in := placeInput()
+	in.CouponCode = "WELCOME10"
+	_, err := newPlace(t, d).Execute(t.Context(), in)
+	wantKind(t, err, application.KindInternal)
+	if !errors.Is(err, boom) {
+		t.Errorf("err = %v", err)
 	}
 }

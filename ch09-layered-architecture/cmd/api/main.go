@@ -15,6 +15,7 @@ import (
 
 	"example.com/trainingbooking/internal/booking/application"
 	"example.com/trainingbooking/internal/booking/domain"
+	"example.com/trainingbooking/internal/booking/infrastructure/fixed"
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres"
 	"example.com/trainingbooking/internal/booking/presentation"
 	"example.com/trainingbooking/internal/platform/logging"
@@ -85,7 +86,8 @@ func newRouter(
 	clock := systemClock{}
 	return presentation.NewRouter(presentation.Deps{
 		Place: application.NewPlaceBooking(
-			repo, queries, outbox, tx, clock, terms),
+			repo, queries, outbox, tx, clock,
+			fixed.NewCoupons(), terms),
 		Cancel: application.NewCancelBooking(
 			repo, outbox, tx, clock),
 		Queries: queries,

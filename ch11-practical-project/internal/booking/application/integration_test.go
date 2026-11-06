@@ -10,6 +10,7 @@ import (
 	"example.com/trainingbooking/internal/booking/application"
 	"example.com/trainingbooking/internal/booking/application/querytest"
 	"example.com/trainingbooking/internal/booking/domain"
+	"example.com/trainingbooking/internal/booking/infrastructure/fixed"
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres"
 	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/dbtest"
@@ -38,7 +39,8 @@ func TestPlaceBooking_RollsBackWhenOutboxFails(t *testing.T) {
 
 	failing := application.NewPlaceBooking(
 		repo, postgres.NewBookingQueries(pool), failingOutbox{boom},
-		tx, fixedClock{now}, lessons(t), stubMembers{})
+		tx, fixedClock{now}, fixed.NewCoupons(), lessons(t),
+		stubMembers{})
 	_, err := failing.Execute(t.Context(), in)
 	wantKind(t, err, application.KindInternal)
 	if !errors.Is(err, boom) {
@@ -65,8 +67,8 @@ func TestPlaceBooking_ConcurrentOverlapOnPostgres(t *testing.T) {
 	place := application.NewPlaceBooking(
 		postgres.NewBookingRepository(pool),
 		postgres.NewBookingQueries(pool), discardOutbox{},
-		pgtx.NewTransactor(pool), fixedClock{now}, lessons(t),
-		stubMembers{})
+		pgtx.NewTransactor(pool), fixedClock{now},
+		fixed.NewCoupons(), lessons(t), stubMembers{})
 	in := placeInput()
 
 	errs := make([]error, 2)
@@ -105,8 +107,8 @@ func TestPlaceBooking_DetectsOverlapOnPostgres(t *testing.T) {
 	tx := pgtx.NewTransactor(pool)
 	queries := postgres.NewBookingQueries(pool)
 	first := application.NewPlaceBooking(
-		repo, queries, discardOutbox{}, tx,
-		fixedClock{now}, lessons(t), stubMembers{})
+		repo, queries, discardOutbox{}, tx, fixedClock{now},
+		fixed.NewCoupons(), lessons(t), stubMembers{})
 	in := placeInput()
 	if _, err := first.Execute(t.Context(), in); err != nil {
 		t.Fatalf("1件目: %v", err)
@@ -114,9 +116,9 @@ func TestPlaceBooking_DetectsOverlapOnPostgres(t *testing.T) {
 	// Add まで進めば boom になる
 	boom := errors.New("add")
 	second := application.NewPlaceBooking(
-		failingRepository{repo, boom},
-		queries, discardOutbox{}, tx,
-		fixedClock{now}, lessons(t), stubMembers{})
+		failingRepository{repo, boom}, queries, discardOutbox{}, tx,
+		fixedClock{now}, fixed.NewCoupons(), lessons(t),
+		stubMembers{})
 	in.LessonID = ids.NewID[ids.LessonMarker]().String()
 	_, err := second.Execute(t.Context(), in)
 	wantKind(t, err, application.KindConflict)
@@ -131,9 +133,8 @@ func TestPlaceBooking_StaleReadIsStoppedByConstraint(t *testing.T) {
 	place := application.NewPlaceBooking(
 		postgres.NewBookingRepository(pool),
 		staleQueries{postgres.NewBookingQueries(pool)},
-		discardOutbox{},
-		pgtx.NewTransactor(pool),
-		fixedClock{now}, lessons(t), stubMembers{})
+		discardOutbox{}, pgtx.NewTransactor(pool), fixedClock{now},
+		fixed.NewCoupons(), lessons(t), stubMembers{})
 	in := placeInput()
 	if _, err := place.Execute(t.Context(), in); err != nil {
 		t.Fatalf("1件目: %v", err)
@@ -146,5 +147,32 @@ func TestPlaceBooking_StaleReadIsStoppedByConstraint(t *testing.T) {
 	}
 	if _, ok := errors.AsType[*pgconn.PgError](err); !ok {
 		t.Errorf("排他制約のエラーでない: %v", err)
+	}
+}
+
+// 割引は保存され、一覧の合計に反映される。
+func TestPlaceBooking_CouponIsSavedOnPostgres(t *testing.T) {
+	pool := dbtest.New(t, postgres.Migrations)
+	queries := postgres.NewBookingQueries(pool)
+	place := application.NewPlaceBooking(
+		postgres.NewBookingRepository(pool),
+		queries, discardOutbox{}, pgtx.NewTransactor(pool),
+		fixedClock{now}, fixed.NewCoupons(), lessons(t),
+		stubMembers{})
+	in := placeInput()
+	in.CouponCode = "WELCOME10"
+	if _, err := place.Execute(t.Context(), in); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	member, err := ids.ParseID[ids.MemberMarker](in.MemberID)
+	if err != nil {
+		t.Fatalf("ParseID: %v", err)
+	}
+	views, err := queries.ListByMember(t.Context(), member)
+	if err != nil {
+		t.Fatalf("ListByMember: %v", err)
+	}
+	if len(views) != 1 || views[0].TotalYen != 2700 {
+		t.Fatalf("views = %+v", views)
 	}
 }

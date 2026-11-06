@@ -21,6 +21,8 @@ type PlaceBookingInput struct {
 	LessonID string
 	Start    time.Time
 	Duration time.Duration
+	// CouponCode は任意である。割引率は受け取らない。
+	CouponCode string
 }
 
 // PlaceBookingOutput は予約の結果である。
@@ -36,6 +38,7 @@ type PlaceBooking struct {
 	outbox  OutboxWriter
 	tx      Transactor
 	clock   domain.Clock
+	coupons Coupons
 	terms   LessonTerms
 }
 
@@ -46,9 +49,12 @@ func NewPlaceBooking(
 	outbox OutboxWriter,
 	tx Transactor,
 	clock domain.Clock,
+	coupons Coupons,
 	terms LessonTerms,
 ) *PlaceBooking {
-	return &PlaceBooking{repo, queries, outbox, tx, clock, terms}
+	return &PlaceBooking{
+		repo, queries, outbox, tx, clock, coupons, terms,
+	}
 }
 
 // Execute は予約を pending で保存し、同じ Tx で BookingPlaced を
@@ -56,7 +62,7 @@ func NewPlaceBooking(
 func (u *PlaceBooking) Execute(
 	ctx context.Context, in PlaceBookingInput,
 ) (PlaceBookingOutput, error) {
-	b, err := u.newBooking(in)
+	b, err := u.newBooking(ctx, in)
 	if err != nil {
 		return PlaceBookingOutput{}, err
 	}
@@ -97,7 +103,7 @@ func (u *PlaceBooking) checkOverlap(
 // newBooking は入力と LessonTerms から集約を作る。
 // 入力の誤りは KindInvalid にする。
 func (u *PlaceBooking) newBooking(
-	in PlaceBookingInput,
+	ctx context.Context, in PlaceBookingInput,
 ) (*domain.Booking, error) {
 	member, err := ids.ParseID[ids.MemberMarker](in.MemberID)
 	if err != nil {
@@ -121,5 +127,33 @@ func (u *PlaceBooking) newBooking(
 	if err != nil {
 		return nil, translate(err)
 	}
+	if err := u.applyCoupon(ctx, b, in.CouponCode); err != nil {
+		return nil, err
+	}
 	return b, nil
+}
+
+// applyCoupon はコードの Coupon で割引を計算して適用する。
+// コードが空なら何もしない。割引率は入力で受け取らない。
+func (u *PlaceBooking) applyCoupon(
+	ctx context.Context, b *domain.Booking, code string,
+) error {
+	if code == "" {
+		return nil
+	}
+	coupon, err := u.coupons.Find(ctx, code)
+	if errors.Is(err, ErrCouponNotFound) {
+		return invalid("クーポンのコードが正しくありません", err)
+	}
+	if err != nil {
+		return translate(err)
+	}
+	discount, err := domain.CalculateDiscount(b.Total(), coupon)
+	if err != nil {
+		return translate(err)
+	}
+	if err := b.ApplyDiscount(discount); err != nil {
+		return translate(err)
+	}
+	return nil
 }

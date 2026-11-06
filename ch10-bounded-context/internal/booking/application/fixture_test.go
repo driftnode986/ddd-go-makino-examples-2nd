@@ -8,6 +8,7 @@ import (
 
 	"example.com/trainingbooking/internal/booking/application"
 	"example.com/trainingbooking/internal/booking/domain"
+	"example.com/trainingbooking/internal/booking/infrastructure/fixed"
 	"example.com/trainingbooking/internal/booking/infrastructure/memory"
 	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/txn/memtx"
@@ -79,6 +80,7 @@ type memoryDeps struct {
 	queries application.BookingQueries
 	outbox  *memory.OutboxWriter
 	tx      *memtx.Transactor
+	coupons application.Coupons
 }
 
 func newMemoryDeps() memoryDeps {
@@ -88,6 +90,7 @@ func newMemoryDeps() memoryDeps {
 		queries: memory.NewBookingQueries(repo),
 		outbox:  memory.NewOutboxWriter(),
 		tx:      memtx.NewTransactor(),
+		coupons: fixed.NewCoupons(),
 	}
 }
 
@@ -198,4 +201,13 @@ func (q failingQueries) ActiveSlotsByMember(
 	context.Context, ids.MemberID,
 ) ([]domain.TimeSlot, error) {
 	return nil, q.err
+}
+
+// failingCoupons はどのコードでも err を返す。
+type failingCoupons struct{ err error }
+
+func (c failingCoupons) Find(
+	context.Context, string,
+) (domain.Coupon, error) {
+	return domain.Coupon{}, c.err
 }
