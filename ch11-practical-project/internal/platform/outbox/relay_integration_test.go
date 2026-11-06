@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"uuid"
@@ -100,6 +101,82 @@ func TestAppend_RollsBackWithTransaction(t *testing.T) {
 	if err != nil || len(got) != 0 {
 		t.Fatalf("got = %v, err = %v", got, err)
 	}
+}
+
+// 先行の Tx が開いているあいだ、後続は同じ集約の書き込みを待つ。
+// 連番の順とコミットの順がそろうので、配信処理は順序を誤らない。
+func TestAppend_WaitsForEarlierTransaction(t *testing.T) {
+	f := newFixture(t)
+	a := uuid.New().String()
+	appended := make(chan struct{})
+	release := make(chan struct{})
+	releaseFirst := sync.OnceFunc(func() { close(release) })
+	var writers sync.WaitGroup
+	defer func() {
+		releaseFirst()
+		writers.Wait()
+	}()
+	writers.Go(func() {
+		err := f.tx.Do(t.Context(),
+			func(ctx context.Context) error {
+				err := f.store.Append(ctx, message(a, "1"))
+				close(appended)
+				<-release
+				return err
+			})
+		if err != nil {
+			t.Errorf("先行: %v", err)
+		}
+	})
+	<-appended
+	writers.Go(func() {
+		err := f.tx.Do(t.Context(),
+			func(ctx context.Context) error {
+				return f.store.Append(ctx, message(a, "2"))
+			})
+		if err != nil {
+			t.Errorf("後続: %v", err)
+		}
+	})
+	f.waitForAdvisoryWait(t)
+
+	var r recorder
+	var buf bytes.Buffer
+	relay := f.relay(&r, &buf, outbox.RelayOptions{})
+	n, err := relay.RunOnce(t.Context())
+	if n != 0 || err != nil {
+		t.Fatalf("先行の確定前: n = %d, err = %v", n, err)
+	}
+
+	releaseFirst()
+	writers.Wait()
+	drain(t, relay)
+	want := []string{"1", "2"}
+	if diff := cmp.Diff(want, r.names); diff != "" {
+		t.Errorf("順序 (-want +got):\n%s", diff)
+	}
+}
+
+// waitForAdvisoryWait は接続がアドバイザリロックを待ち始めるまで
+// 待つ。
+func (f fixture) waitForAdvisoryWait(t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		var waiting int
+		err := f.pool.QueryRow(t.Context(),
+			`SELECT count(*) FROM pg_stat_activity
+			 WHERE datname = current_database()
+			   AND wait_event = 'advisory'`).Scan(&waiting)
+		if err != nil {
+			t.Fatalf("QueryRow: %v", err)
+		}
+		if waiting > 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("後続がロックを待たなかった")
 }
 
 // 連番は集約ごとに1から振られ、未配信の先頭だけが候補に出る。

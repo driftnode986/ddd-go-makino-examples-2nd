@@ -17,6 +17,8 @@ import (
 	"example.com/trainingbooking/internal/platform/dbtest"
 	"example.com/trainingbooking/internal/platform/outbox"
 	"example.com/trainingbooking/internal/platform/txn/pgtx"
+	"github.com/google/go-cmp/cmp"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // racingRepo は2本の処理が同じ版を読むまで読み込みを止める。
@@ -103,31 +105,38 @@ func TestReserveSeat_ConcurrentLastSeat(t *testing.T) {
 }
 
 // 定員より多い予約が同時に来ても、定員ちょうどが確保される。
+// 予約ごとに結果のイベントが1件残り、連番は欠けない。
 func TestReserveSeat_ConcurrentUpToCapacity(t *testing.T) {
 	pool := dbtest.New(t, postgres.Migrations, outbox.Migrations)
 	repo := postgres.NewLessonRepository(pool)
 	tx := pgtx.NewTransactor(pool)
 	const capacity, requests = 3, 8
 	lesson := addLesson(t, repo, tx, capacity)
-	reserve := application.NewReserveSeat(repo, discardOutbox{},
+	reserve := application.NewReserveSeat(repo,
+		postgres.NewOutboxWriter(outbox.NewStore(pool)),
 		outbox.NewProcessedEvents(pool), tx, fixedClock{now})
 
+	inputs := make([]application.ReserveSeatInput, requests)
 	errs := make([]error, requests)
 	var done sync.WaitGroup
 	for i := range errs {
+		inputs[i] = reserveInput(lesson)
 		done.Go(func() {
-			errs[i] = reserve.Execute(
-				t.Context(), reserveInput(lesson))
+			errs[i] = reserve.Execute(t.Context(), inputs[i])
 		})
 	}
 	done.Wait()
 
 	reserved := 0
-	for _, err := range errs {
+	want := make(map[string]string, requests)
+	for i, err := range errs {
+		booking := inputs[i].BookingID.String()
 		switch {
 		case err == nil:
 			reserved++
+			want[booking] = contract.EventSeatReserved
 		case errors.Is(err, domain.ErrLessonFull):
+			want[booking] = contract.EventSeatRejected
 		default:
 			t.Errorf("想定外のエラー: %v", err)
 		}
@@ -138,6 +147,47 @@ func TestReserveSeat_ConcurrentUpToCapacity(t *testing.T) {
 	if n := seats(t, repo, lesson); n != capacity {
 		t.Errorf("seats = %d", n)
 	}
+	got := resultEvents(t, pool, lesson)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("結果のイベント (-want +got):\n%s", diff)
+	}
+}
+
+// resultEvents は予約ごとの結果のイベントの種類を返す。予約の重複
+// と連番の欠けはテストの失敗にする。
+func resultEvents(
+	t *testing.T, pool *pgxpool.Pool, lesson ids.LessonID,
+) map[string]string {
+	t.Helper()
+	rows, err := pool.Query(t.Context(),
+		`SELECT sequence, event_type, payload->>'booking_id'
+		 FROM outbox WHERE aggregate_id = $1 ORDER BY sequence`,
+		lesson.String())
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	defer rows.Close()
+	got := make(map[string]string)
+	var last int64
+	for rows.Next() {
+		var sequence int64
+		var eventType, booking string
+		err := rows.Scan(&sequence, &eventType, &booking)
+		if err != nil {
+			t.Fatalf("Scan: %v", err)
+		}
+		if _, dup := got[booking]; dup {
+			t.Errorf("予約 %s のイベントが重複した", booking)
+		}
+		if last++; sequence != last {
+			t.Errorf("連番 = %d, want %d", sequence, last)
+		}
+		got[booking] = eventType
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+	return got
 }
 
 // failsOnceOutbox は最初の Append を失敗させる。席の保存の後で
