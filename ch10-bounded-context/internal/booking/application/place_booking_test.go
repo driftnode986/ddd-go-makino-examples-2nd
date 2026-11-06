@@ -408,8 +408,6 @@ func TestPlaceBooking_DetectsOverlapBeforeAdd(t *testing.T) {
 	}
 }
 
-// #region stale-read
-
 // 読み取りで見えなかった予約は、リポジトリが ErrOverlap で止める。
 func TestPlaceBooking_StaleReadIsStoppedByRepository(t *testing.T) {
 	d := newMemoryDeps()
@@ -429,8 +427,6 @@ func TestPlaceBooking_StaleReadIsStoppedByRepository(t *testing.T) {
 		t.Errorf("events = %v", d.outbox.Events())
 	}
 }
-
-// #endregion
 
 func TestPlaceBooking_QueryFailureIsKindInternal(t *testing.T) {
 	d := newMemoryDeps()

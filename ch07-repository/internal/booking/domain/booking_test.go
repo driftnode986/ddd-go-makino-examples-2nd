@@ -504,3 +504,30 @@ func TestVersion_NotChangedByMethods(t *testing.T) {
 		t.Fatalf("Version = %d", b.Version())
 	}
 }
+
+func TestAddOption_AfterDiscount(t *testing.T) {
+	b := newBooking(t)
+	discount, err := domain.NewMoney(300)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.ApplyDiscount(discount); err != nil {
+		t.Fatal(err)
+	}
+	price, err := domain.NewMoney(500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o, err := domain.NewBookingOption("シューズ", price, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = b.AddOption(o, earlier)
+	if !errors.Is(err, domain.ErrInvalidTransition) {
+		t.Fatalf("err = %v", err)
+	}
+	if len(b.Options()) != 0 || b.Total().Amount() != 2700 {
+		t.Fatalf("Options = %v, Total = %d",
+			b.Options(), b.Total().Amount())
+	}
+}

@@ -8,14 +8,14 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
-// #region booking-view
-
 // BookingOptionView は一覧に載せる明細である。
 type BookingOptionView struct {
 	Name        string
 	Quantity    int
 	SubtotalYen int64
 }
+
+// #region booking-view
 
 // BookingView は一覧のための読み取り専用の DTO である。
 // Options は追加の順で、明細が無ければ空のスライスである。

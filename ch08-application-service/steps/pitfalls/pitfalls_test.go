@@ -18,36 +18,42 @@ import (
 	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
+// memoryDeps は in-memory の部品である。
+type memoryDeps struct {
+	repo   *memory.BookingRepository
+	tx     *memtx.Transactor
+	outbox *memory.OutboxWriter
+}
+
+func newDeps() memoryDeps {
+	return memoryDeps{
+		memory.NewBookingRepository(), memtx.NewTransactor(),
+		memory.NewOutboxWriter(),
+	}
+}
+
 // #region separate-tx
 
 func TestSeparateTxLeavesBookingWithoutEvent(t *testing.T) {
-	repo := memory.NewBookingRepository()
-	tx := memtx.NewTransactor()
-	outbox := memory.NewOutboxWriter()
-	failing := &flakyOutbox{next: outbox, fails: 1}
-	b := newBooking(t)
+	d, b := newDeps(), newBooking(t)
+	failing := &flakyOutbox{next: d.outbox, fails: 1}
 
-	ctx := t.Context()
-	err := tx.Do(ctx, func(ctx context.Context) error {
-		return repo.Add(ctx, b)
+	err := d.tx.Do(t.Context(), func(ctx context.Context) error {
+		return d.repo.Add(ctx, b)
 	})
 	if err != nil {
 		t.Fatalf("Add: %v", err)
 	}
-	err = tx.Do(ctx, func(ctx context.Context) error {
+	err = d.tx.Do(t.Context(), func(ctx context.Context) error {
 		return failing.Append(ctx, b.PullEvents()...)
 	})
 	t.Logf("2つ目の Tx のエラー: %v", err)
 
-	got, err := repo.FindByID(ctx, b.ID())
-	if err != nil {
-		t.Fatalf("予約が残っていない: %v", err)
+	got, err := d.repo.FindByID(t.Context(), b.ID())
+	if err != nil || len(d.outbox.Events()) != 0 {
+		t.Fatalf("err = %v, events = %v", err, d.outbox.Events())
 	}
-	t.Logf("予約: %s / イベント: %d 件",
-		got.Status(), len(outbox.Events()))
-	if len(outbox.Events()) != 0 {
-		t.Fatal("イベントが書かれた")
-	}
+	t.Logf("予約: %s / イベント: 0 件", got.Status())
 }
 
 // #endregion
@@ -55,15 +61,12 @@ func TestSeparateTxLeavesBookingWithoutEvent(t *testing.T) {
 // #region retry-same
 
 func TestRetryWithSameBookingLosesEvent(t *testing.T) {
-	repo := memory.NewBookingRepository()
-	tx := memtx.NewTransactor()
-	outbox := memory.NewOutboxWriter()
-	flaky := &flakyOutbox{next: outbox, fails: 1}
-	b := newBooking(t)
+	d, b := newDeps(), newBooking(t)
+	flaky := &flakyOutbox{next: d.outbox, fails: 1}
 
 	save := func() error {
-		return tx.Do(t.Context(), func(ctx context.Context) error {
-			if err := repo.Add(ctx, b); err != nil {
+		return d.tx.Do(t.Context(), func(ctx context.Context) error {
+			if err := d.repo.Add(ctx, b); err != nil {
 				return err
 			}
 			return flaky.Append(ctx, b.PullEvents()...)
@@ -71,10 +74,10 @@ func TestRetryWithSameBookingLosesEvent(t *testing.T) {
 	}
 	t.Logf("1回目: %v", save())
 	err := save()
-	t.Logf("2回目: %v / イベント: %d 件", err, len(outbox.Events()))
-	if err != nil || len(outbox.Events()) != 0 {
-		t.Fatalf("err = %v, events = %v", err, outbox.Events())
+	if err != nil || len(d.outbox.Events()) != 0 {
+		t.Fatalf("err = %v, events = %v", err, d.outbox.Events())
 	}
+	t.Logf("2回目: %v / イベント: 0 件", err)
 }
 
 // #endregion

@@ -230,7 +230,6 @@ func TestConflictThenRereadJudgesAgain(t *testing.T) {
 	}
 	mine := application.NewCancelBooking(
 		interleaveRepo{repo, &before}, outbox, tx, clock)
-
 	for i := range 2 {
 		_, err := mine.Execute(t.Context(), in)
 		got, ok := errors.AsType[*application.ApplicationError](err)

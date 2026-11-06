@@ -3,33 +3,32 @@ package twopaths
 
 import "example.com/trainingbooking/internal/booking/domain"
 
-// #region paths
-
-// FromHTTP はハンドラに書いた手順である。
-func FromHTTP(
-	b *domain.Booking, o domain.BookingOption,
-	c domain.Coupon, clk domain.Clock,
-) error {
-	if err := b.AddOption(o, clk); err != nil {
-		return err
-	}
-	d, err := domain.CalculateDiscount(b.Total(), c)
-	if err != nil {
-		return err
-	}
-	return b.ApplyDiscount(d)
+// Row は CSV の1行である。
+type Row struct {
+	Name      string
+	Quantity  int
+	UnitPrice domain.Money
 }
 
-// FromCSV はバッチに書き写した手順である。割引を先に計算している。
-func FromCSV(
-	b *domain.Booking, o domain.BookingOption,
-	c domain.Coupon, clk domain.Clock,
+// #region paths
+
+// FromHTTP はハンドラの手順である。単価はレッスンの表から取る。
+func FromHTTP(
+	b *domain.Booking, name string, qty int,
+	prices map[string]domain.Money, clk domain.Clock,
 ) error {
-	d, err := domain.CalculateDiscount(b.Total(), c)
+	o, err := domain.NewBookingOption(name, prices[name], qty)
 	if err != nil {
 		return err
 	}
-	if err := b.ApplyDiscount(d); err != nil {
+	return b.AddOption(o, clk)
+}
+
+// FromCSV はバッチに写した手順である。単価は行の値を使っている。
+func FromCSV(b *domain.Booking, r Row, clk domain.Clock) error {
+	o, err := domain.NewBookingOption(
+		r.Name, r.UnitPrice, r.Quantity)
+	if err != nil {
 		return err
 	}
 	return b.AddOption(o, clk)

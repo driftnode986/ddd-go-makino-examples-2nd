@@ -26,14 +26,6 @@ func TestTwoPathsDiffer(t *testing.T) {
 	jst := time.FixedZone("JST", 9*60*60)
 	start := time.Date(2030, time.June, 1, 10, 0, 0, 0, jst)
 	clk := fixedClock{start.AddDate(0, -1, 0)}
-	coupon, err := domain.NewCoupon(10)
-	if err != nil {
-		t.Fatalf("NewCoupon: %v", err)
-	}
-	shoes, err := domain.NewBookingOption("シューズ", yen(t, 300), 2)
-	if err != nil {
-		t.Fatalf("NewBookingOption: %v", err)
-	}
 	slot, err := domain.NewTimeSlot(start, time.Hour, jst)
 	if err != nil {
 		t.Fatalf("NewTimeSlot: %v", err)
@@ -49,12 +41,15 @@ func TestTwoPathsDiffer(t *testing.T) {
 		return b
 	}
 	web, csv := newBooking(), newBooking()
-	err = twopaths.FromHTTP(web, shoes, coupon, clk)
+	prices := map[string]domain.Money{"シューズ": yen(t, 300)}
+	err = twopaths.FromHTTP(web, "シューズ", 2, prices, clk)
 	if err != nil {
 		t.Fatalf("FromHTTP: %v", err)
 	}
-	err = twopaths.FromCSV(csv, shoes, coupon, clk)
-	if err != nil {
+	row := twopaths.Row{
+		Name: "シューズ", Quantity: 2, UnitPrice: yen(t, 250),
+	}
+	if err := twopaths.FromCSV(csv, row, clk); err != nil {
 		t.Fatalf("FromCSV: %v", err)
 	}
 	t.Logf("HTTP の経路: 合計 %d 円", web.Total().Amount())

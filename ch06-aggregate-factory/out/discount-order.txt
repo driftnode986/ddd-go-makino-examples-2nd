@@ -1,2 +1,3 @@
 明細→割引: 割引350円 合計3150円
-割引→明細: 割引300円 合計3200円
+割引→明細: invalid status transition: add option after discount from
+"pending"

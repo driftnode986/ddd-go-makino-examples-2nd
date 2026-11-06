@@ -2,6 +2,7 @@
 package pitfalls_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -112,9 +113,15 @@ func TestDiscountAmountIsFixed(t *testing.T) {
 	if err := second.ApplyDiscount(d); err != nil {
 		t.Fatal(err)
 	}
-	add(t, second, "シューズ", 500)
-	t.Logf("割引→明細: 割引%d円 合計%d円",
-		d.Amount(), second.Total().Amount())
+	shoes, err := domain.NewBookingOption("シューズ", yen(t, 500), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = second.AddOption(shoes, earlier)
+	if !errors.Is(err, domain.ErrInvalidTransition) {
+		t.Fatalf("err = %v", err)
+	}
+	t.Logf("割引→明細: %v", err)
 }
 
 // #endregion

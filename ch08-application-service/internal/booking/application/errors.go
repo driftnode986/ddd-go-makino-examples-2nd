@@ -89,7 +89,7 @@ var translations = slices.Concat(storedErrors, requestErrors)
 
 // #region stored-errors
 
-// storedErrors は保存された予約に関わるエラーである。
+// storedErrors は対象の予約が無いか、今の状態とぶつかったエラー。
 var storedErrors = []translation{
 	{domain.ErrNotFound, KindNotFound, "予約が見つかりません"},
 	{domain.ErrDuplicate, KindConflict, "同じ予約が既にあります"},
@@ -115,7 +115,7 @@ var storedErrors = []translation{
 
 // #region request-errors
 
-// requestErrors は要求の中身だけで受け付けられないエラーである。
+// requestErrors は参照する値に合わないか、要求自体の誤りである。
 var requestErrors = []translation{
 	{
 		domain.ErrStartInPast, KindInvalid,

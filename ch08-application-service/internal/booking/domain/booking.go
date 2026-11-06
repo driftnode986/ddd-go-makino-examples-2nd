@@ -183,9 +183,13 @@ func (b *Booking) Cancel(clk Clock) error {
 // #region add-option
 
 // AddOption は pending の予約に、開始の24時間前まで明細を追加する。
+// 割引額は足す前の合計から計算したものなので、割引の後は拒否する。
 func (b *Booking) AddOption(o BookingOption, clk Clock) error {
 	if b.status != StatusPending {
 		return b.invalidTransition("add option")
+	}
+	if !b.discount.IsZero() {
+		return b.invalidTransition("add option after discount")
 	}
 	if now := clk.Now(); b.pastDeadline(now) {
 		return fmt.Errorf("%w: now=%s", ErrChangeTooLate, now)

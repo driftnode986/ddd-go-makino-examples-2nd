@@ -3,6 +3,7 @@
 package application_test
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -61,12 +62,15 @@ func TestPlaceBooking_RollsBackWhenOutboxFails(t *testing.T) {
 	}
 }
 
-// 同じ会員の重なる予約を同時に受けても、1件だけ成功する。
+// 両方が空の読み取りを終えてから保存しても、1件だけ成功する。
 func TestPlaceBooking_ConcurrentOverlapOnPostgres(t *testing.T) {
 	pool := dbtest.New(t, postgres.Migrations)
+	var reads sync.WaitGroup
+	reads.Add(2)
 	place := application.NewPlaceBooking(
 		postgres.NewBookingRepository(pool),
-		postgres.NewBookingQueries(pool), discardOutbox{},
+		barrierQueries{postgres.NewBookingQueries(pool), &reads},
+		discardOutbox{},
 		pgtx.NewTransactor(pool), fixedClock{now},
 		fixed.NewCoupons(), lessons(t), stubMembers{})
 	in := placeInput()
@@ -90,6 +94,11 @@ func TestPlaceBooking_ConcurrentOverlapOnPostgres(t *testing.T) {
 			ok++
 		case errors.Is(err, domain.ErrOverlap):
 			wantKind(t, err, application.KindConflict)
+			// 読み取りはどちらも空なので、止めたのは排他制約である
+			pgErr, ok := errors.AsType[*pgconn.PgError](err)
+			if !ok || pgErr.Code != "23P01" {
+				t.Fatalf("排他制約のエラーでない: %v", err)
+			}
 			conflict++
 		default:
 			t.Fatalf("想定外のエラー: %v", err)
@@ -98,6 +107,21 @@ func TestPlaceBooking_ConcurrentOverlapOnPostgres(t *testing.T) {
 	if ok != 1 || conflict != 1 {
 		t.Fatalf("成功 %d 件, 競合 %d 件", ok, conflict)
 	}
+}
+
+// barrierQueries は2つの読み取りがそろうまで結果を返さない。
+type barrierQueries struct {
+	application.BookingQueries
+	reads *sync.WaitGroup
+}
+
+func (q barrierQueries) ActiveSlotsByMember(
+	ctx context.Context, member ids.MemberID,
+) ([]domain.TimeSlot, error) {
+	slots, err := q.BookingQueries.ActiveSlotsByMember(ctx, member)
+	q.reads.Done()
+	q.reads.Wait()
+	return slots, err
 }
 
 // 順に来た重なる予約は、Add の前に読み取りと DetectOverlap で止まる。
