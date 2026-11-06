@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 )
 
 // Status は予約の状態である。
@@ -30,9 +30,9 @@ const (
 // Booking は予約の集約ルートである。
 // レッスンと時間帯は作成後に変えない。
 type Booking struct {
-	id       shared.BookingID
-	memberID shared.MemberID
-	lessonID shared.LessonID
+	id       ids.BookingID
+	memberID ids.MemberID
+	lessonID ids.LessonID
 	slot     TimeSlot
 	fee      Money
 	options  []BookingOption
@@ -46,9 +46,9 @@ type Booking struct {
 // NewBooking は pending の予約を作り、BookingPlaced を記録する。
 // ID の採番は呼び出し側で行う。
 func NewBooking(
-	id shared.BookingID,
-	member shared.MemberID,
-	lesson shared.LessonID,
+	id ids.BookingID,
+	member ids.MemberID,
+	lesson ids.LessonID,
 	slot TimeSlot,
 	fee Money,
 	clk Clock,
@@ -81,13 +81,13 @@ func NewBooking(
 }
 
 // ID は予約の ID を返す。
-func (b *Booking) ID() shared.BookingID { return b.id }
+func (b *Booking) ID() ids.BookingID { return b.id }
 
 // MemberID は会員の ID を返す。
-func (b *Booking) MemberID() shared.MemberID { return b.memberID }
+func (b *Booking) MemberID() ids.MemberID { return b.memberID }
 
 // LessonID はレッスンの ID を返す。
-func (b *Booking) LessonID() shared.LessonID { return b.lessonID }
+func (b *Booking) LessonID() ids.LessonID { return b.lessonID }
 
 // Slot は時間帯を返す。
 func (b *Booking) Slot() TimeSlot { return b.slot }

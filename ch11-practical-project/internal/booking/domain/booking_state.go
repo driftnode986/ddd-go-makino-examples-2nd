@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 )
 
 // BookingState は保存と再構築のための集約の中身である。
 // 金額は検証前の値も表せるように整数で持つ。
 type BookingState struct {
-	ID          shared.BookingID
-	MemberID    shared.MemberID
-	LessonID    shared.LessonID
+	ID          ids.BookingID
+	MemberID    ids.MemberID
+	LessonID    ids.LessonID
 	Start       time.Time
 	End         time.Time
 	FeeYen      int64

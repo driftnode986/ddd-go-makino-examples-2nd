@@ -8,7 +8,7 @@ import (
 
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres/sqlcgen"
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -27,19 +27,14 @@ const (
 // BookingRepository は Booking を PostgreSQL に保存する。
 type BookingRepository struct {
 	pool *pgxpool.Pool
-	tx   *Transactor
 }
 
 // NewBookingRepository は BookingRepository を返す。
 func NewBookingRepository(pool *pgxpool.Pool) *BookingRepository {
-	return &BookingRepository{
-		pool: pool,
-		tx:   NewTransactor(pool),
-	}
+	return &BookingRepository{pool: pool}
 }
 
-// Add は親と明細を1つの Tx で保存する。
-// ctx に Tx があれば参加し、無ければ自分で開く。
+// Add は親と明細を ctx の Tx の中で保存する。
 //
 // 重なる予約を同時に書くと、排他制約の検査どうしが互いの Tx を
 // 待ってデッドロック（40P01）になることがある。会員ごとの
@@ -47,76 +42,80 @@ func NewBookingRepository(pool *pgxpool.Pool) *BookingRepository {
 func (r *BookingRepository) Add(
 	ctx context.Context, b *domain.Booking,
 ) error {
-	s, err := validState(b)
+	s, q, err := prepare(ctx, b)
 	if err != nil {
 		return err
 	}
-	err = r.tx.Do(ctx, func(ctx context.Context) error {
-		q := r.queries(ctx)
-		err := q.LockMember(ctx, s.MemberID.String())
-		if err != nil {
-			return err
-		}
-		err = q.InsertBooking(ctx, sqlcgen.InsertBookingParams{
-			ID:          s.ID.String(),
-			MemberID:    s.MemberID.String(),
-			LessonID:    s.LessonID.String(),
-			StartsAt:    s.Start,
-			EndsAt:      s.End,
-			FeeYen:      s.FeeYen,
-			DiscountYen: s.DiscountYen,
-			Status:      string(s.Status),
-			Version:     int64(s.Version),
-		})
-		if err != nil {
-			return err
-		}
-		return insertOptions(ctx, q, s)
-	})
-	return translate(err)
+	return translate(insertBooking(ctx, q, s))
 }
 
-// Save は読み込んだときの版で判定して更新する。
+// Save は読み込んだときの版で判定し、ctx の Tx の中で更新する。
 // b の版は変えない。状態の更新も排他制約の検査を走らせるので、
 // Add と同じロックを取る。
 func (r *BookingRepository) Save(
 	ctx context.Context, b *domain.Booking,
 ) error {
-	s, err := validState(b)
+	s, q, err := prepare(ctx, b)
 	if err != nil {
 		return err
 	}
-	err = r.tx.Do(ctx, func(ctx context.Context) error {
-		q := r.queries(ctx)
-		err := q.LockMember(ctx, s.MemberID.String())
-		if err != nil {
-			return err
-		}
-		params := sqlcgen.UpdateBookingParams{
-			ID:          s.ID.String(),
-			Version:     int64(s.Version),
-			Status:      string(s.Status),
-			DiscountYen: s.DiscountYen,
-		}
-		rows, err := q.UpdateBooking(ctx, params)
-		if err != nil {
-			return err
-		}
-		if rows == 0 {
-			return missingOrConflict(ctx, q, s.ID)
-		}
-		err = q.DeleteBookingOptions(ctx, s.ID.String())
-		if err != nil {
-			return err
-		}
-		return insertOptions(ctx, q, s)
+	return translate(updateBooking(ctx, q, s))
+}
+
+func insertBooking(
+	ctx context.Context, q *sqlcgen.Queries, s domain.BookingState,
+) error {
+	err := q.LockMember(ctx, s.MemberID.String())
+	if err != nil {
+		return err
+	}
+	err = q.InsertBooking(ctx, sqlcgen.InsertBookingParams{
+		ID:          s.ID.String(),
+		MemberID:    s.MemberID.String(),
+		LessonID:    s.LessonID.String(),
+		StartsAt:    s.Start,
+		EndsAt:      s.End,
+		FeeYen:      s.FeeYen,
+		DiscountYen: s.DiscountYen,
+		Status:      string(s.Status),
+		Version:     int64(s.Version),
 	})
-	return translate(err)
+	if err != nil {
+		return err
+	}
+	return insertOptions(ctx, q, s)
+}
+
+func updateBooking(
+	ctx context.Context, q *sqlcgen.Queries, s domain.BookingState,
+) error {
+	err := q.LockMember(ctx, s.MemberID.String())
+	if err != nil {
+		return err
+	}
+	params := sqlcgen.UpdateBookingParams{
+		ID:          s.ID.String(),
+		Version:     int64(s.Version),
+		Status:      string(s.Status),
+		DiscountYen: s.DiscountYen,
+	}
+	rows, err := q.UpdateBooking(ctx, params)
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return missingOrConflict(ctx, q, s.ID)
+	}
+	err = q.DeleteBookingOptions(ctx, s.ID.String())
+	if err != nil {
+		return err
+	}
+	return insertOptions(ctx, q, s)
 }
 
 // FindByID は親と明細を1つの SQL で読み、集約を組み立てる。
 func (r *BookingRepository) FindByID(
-	ctx context.Context, id shared.BookingID,
+	ctx context.Context, id ids.BookingID,
 ) (*domain.Booking, error) {
 	rows, err := r.queries(ctx).FindBookingWithOptions(
 		ctx, id.String())
@@ -143,12 +142,23 @@ func (r *BookingRepository) queries(
 	return sqlcgen.New(r.pool)
 }
 
-func validState(b *domain.Booking) (domain.BookingState, error) {
+// prepare は保存できる集約かと ctx の Tx を確かめて、
+// 中身のコピーと Tx に結び付いたクエリを返す。
+func prepare(
+	ctx context.Context, b *domain.Booking,
+) (domain.BookingState, *sqlcgen.Queries, error) {
+	if err := ctx.Err(); err != nil {
+		return domain.BookingState{}, nil, err
+	}
 	s := b.State()
 	if _, err := domain.ReconstructBooking(s); err != nil {
-		return domain.BookingState{}, err
+		return domain.BookingState{}, nil, err
 	}
-	return s, nil
+	tx, ok := txFrom(ctx)
+	if !ok {
+		return domain.BookingState{}, nil, domain.ErrNoTransaction
+	}
+	return s, sqlcgen.New(tx), nil
 }
 
 func insertOptions(
@@ -172,7 +182,7 @@ func insertOptions(
 
 // missingOrConflict は更新が0行だった理由を判定する。
 func missingOrConflict(
-	ctx context.Context, q *sqlcgen.Queries, id shared.BookingID,
+	ctx context.Context, q *sqlcgen.Queries, id ids.BookingID,
 ) error {
 	exists, err := q.BookingExists(ctx, id.String())
 	if err != nil {
@@ -185,15 +195,15 @@ func missingOrConflict(
 }
 
 func toState(
-	id shared.BookingID, rows []sqlcgen.FindBookingWithOptionsRow,
+	id ids.BookingID, rows []sqlcgen.FindBookingWithOptionsRow,
 ) (domain.BookingState, error) {
 	first := rows[0]
-	member, err := shared.ParseID[shared.MemberMarker](
+	member, err := ids.ParseID[ids.MemberMarker](
 		first.MemberID)
 	if err != nil {
 		return domain.BookingState{}, err
 	}
-	lesson, err := shared.ParseID[shared.LessonMarker](
+	lesson, err := ids.ParseID[ids.LessonMarker](
 		first.LessonID)
 	if err != nil {
 		return domain.BookingState{}, err

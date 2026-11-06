@@ -8,6 +8,8 @@ var (
 	ErrDuplicate       = errors.New("booking already exists")
 	ErrVersionConflict = errors.New("booking version conflict")
 	ErrOverlap         = errors.New("booking time slot overlaps")
+	// ErrNoTransaction は Tx の無い ctx で書き込もうとしたことを表す。
+	ErrNoTransaction = errors.New("no transaction in context")
 )
 
 // 集約の操作が返すエラーである。

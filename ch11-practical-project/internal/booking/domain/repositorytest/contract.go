@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"example.com/trainingbooking/internal/booking/domain"
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -27,11 +27,41 @@ var clock = fixedClock{
 	now: time.Date(2030, time.May, 1, 0, 0, 0, 0, jst),
 }
 
+// Transactor は契約テストが使う Tx の境界である。domain は
+// application を import できないので、使う側のここで宣言する。
+type Transactor interface {
+	Do(ctx context.Context, fn func(context.Context) error) error
+}
+
+// txRepository は Add と Save をそれぞれ1つの Tx で実行する。
+type txRepository struct {
+	domain.BookingRepository
+	tx Transactor
+}
+
+func (r txRepository) Add(
+	ctx context.Context, b *domain.Booking,
+) error {
+	return r.tx.Do(ctx, func(ctx context.Context) error {
+		return r.BookingRepository.Add(ctx, b)
+	})
+}
+
+func (r txRepository) Save(
+	ctx context.Context, b *domain.Booking,
+) error {
+	return r.tx.Do(ctx, func(ctx context.Context) error {
+		return r.BookingRepository.Save(ctx, b)
+	})
+}
+
 // Run は契約テストを実行する。newRepo はテストごとに
-// 空のリポジトリを返す。
+// 空のリポジトリと、それに対応する Transactor を返す。
 func Run(
 	t *testing.T,
-	newRepo func(t *testing.T) domain.BookingRepository,
+	newRepo func(
+		t *testing.T,
+	) (domain.BookingRepository, Transactor),
 ) {
 	t.Helper()
 	cases := []struct {
@@ -62,7 +92,29 @@ func Run(
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			c.run(t, newRepo(t))
+			repo, tx := newRepo(t)
+			c.run(t, txRepository{repo, tx})
+		})
+	}
+	txCases := []struct {
+		name string
+		run  func(*testing.T, domain.BookingRepository, Transactor)
+	}{
+		{"TestAdd_WithoutTransaction", testAddWithoutTransaction},
+		{"TestSave_WithoutTransaction", testSaveWithoutTransaction},
+		{"Do の中で外側の ctx を渡すと拒否する", testOuterContextInDo},
+		{"ゼロ値は Tx の有無より先に拒否する", testZeroWithoutTx},
+		{"キャンセルは Tx の有無より先に返す", testCanceledWithoutTx},
+		{"Tx の中で ctx をキャンセルすると戻る", testCanceledInDo},
+		{"FindByID は Tx の中で書いた値を読める", testFindInTx},
+		{"Do が失敗すると Add と Save が戻る", testRollback},
+		{"入れ子の Do は外側に参加する", testNestedDo},
+		{"Do の panic でも Add が戻る", testPanicRollsBack},
+	}
+	for _, c := range txCases {
+		t.Run(c.name, func(t *testing.T) {
+			repo, tx := newRepo(t)
+			c.run(t, repo, tx)
 		})
 	}
 }
@@ -89,7 +141,7 @@ func option(
 
 // bookingAt は会員と日時を指定して1時間の予約を作る。
 func bookingAt(
-	t *testing.T, member shared.MemberID, day, hour int,
+	t *testing.T, member ids.MemberID, day, hour int,
 ) *domain.Booking {
 	t.Helper()
 	start := time.Date(2030, time.June, day, hour, 0, 0, 0, jst)
@@ -98,9 +150,9 @@ func bookingAt(
 		t.Fatalf("NewTimeSlot: %v", err)
 	}
 	b, err := domain.NewBooking(
-		shared.NewID[shared.BookingMarker](),
+		ids.NewID[ids.BookingMarker](),
 		member,
-		shared.NewID[shared.LessonMarker](),
+		ids.NewID[ids.LessonMarker](),
 		slot,
 		money(t, 3000),
 		clock,
@@ -113,7 +165,7 @@ func bookingAt(
 
 func newBooking(t *testing.T) *domain.Booking {
 	t.Helper()
-	return bookingAt(t, shared.NewID[shared.MemberMarker](), 1, 10)
+	return bookingAt(t, ids.NewID[ids.MemberMarker](), 1, 10)
 }
 
 func mustAdd(
@@ -135,7 +187,7 @@ func mustSave(
 }
 
 func mustFind(
-	t *testing.T, r domain.BookingRepository, id shared.BookingID,
+	t *testing.T, r domain.BookingRepository, id ids.BookingID,
 ) *domain.Booking {
 	t.Helper()
 	b, err := r.FindByID(t.Context(), id)
@@ -225,7 +277,7 @@ func testDuplicateAdd(t *testing.T, r domain.BookingRepository) {
 }
 
 func testFindMissing(t *testing.T, r domain.BookingRepository) {
-	id := shared.NewID[shared.BookingMarker]()
+	id := ids.NewID[ids.BookingMarker]()
 	got, err := r.FindByID(t.Context(), id)
 	wantErr(t, err, domain.ErrNotFound)
 	if got != nil {
@@ -376,7 +428,7 @@ func testSaveReplacesOptions(
 }
 
 func testOverlap(t *testing.T, r domain.BookingRepository) {
-	member := shared.NewID[shared.MemberMarker]()
+	member := ids.NewID[ids.MemberMarker]()
 	mustAdd(t, r, bookingAt(t, member, 1, 10))
 	err := r.Add(t.Context(), bookingAt(t, member, 1, 10))
 	wantErr(t, err, domain.ErrOverlap)
@@ -388,8 +440,8 @@ func testOverlap(t *testing.T, r domain.BookingRepository) {
 		t.Fatalf("NewTimeSlot: %v", err)
 	}
 	longer, err := domain.NewBooking(
-		shared.NewID[shared.BookingMarker](), member,
-		shared.NewID[shared.LessonMarker](), slot,
+		ids.NewID[ids.BookingMarker](), member,
+		ids.NewID[ids.LessonMarker](), slot,
 		money(t, 3000), clock,
 	)
 	if err != nil {
@@ -402,13 +454,13 @@ func testOverlapOtherMember(
 	t *testing.T, r domain.BookingRepository,
 ) {
 	mustAdd(t, r, bookingAt(
-		t, shared.NewID[shared.MemberMarker](), 1, 10))
+		t, ids.NewID[ids.MemberMarker](), 1, 10))
 	mustAdd(t, r, bookingAt(
-		t, shared.NewID[shared.MemberMarker](), 1, 10))
+		t, ids.NewID[ids.MemberMarker](), 1, 10))
 }
 
 func testAdjacentSlots(t *testing.T, r domain.BookingRepository) {
-	member := shared.NewID[shared.MemberMarker]()
+	member := ids.NewID[ids.MemberMarker]()
 	mustAdd(t, r, bookingAt(t, member, 1, 10))
 	mustAdd(t, r, bookingAt(t, member, 1, 9))
 	mustAdd(t, r, bookingAt(t, member, 1, 11))
@@ -416,7 +468,7 @@ func testAdjacentSlots(t *testing.T, r domain.BookingRepository) {
 }
 
 func testEndedFreesSlot(t *testing.T, r domain.BookingRepository) {
-	member := shared.NewID[shared.MemberMarker]()
+	member := ids.NewID[ids.MemberMarker]()
 
 	rejected := bookingAt(t, member, 1, 10)
 	mustAdd(t, r, rejected)
@@ -450,7 +502,7 @@ func testConcurrentOverlap(
 ) {
 	const rounds = 20
 	for round := range rounds {
-		member := shared.NewID[shared.MemberMarker]()
+		member := ids.NewID[ids.MemberMarker]()
 		errs := make([]error, 2)
 		var ready, done sync.WaitGroup
 		start := make(chan struct{})
@@ -494,7 +546,7 @@ func testConcurrentConfirm(
 ) {
 	const rounds = 20
 	for round := range rounds {
-		member := shared.NewID[shared.MemberMarker]()
+		member := ids.NewID[ids.MemberMarker]()
 		day := 1 + round%28
 		first := bookingAt(t, member, day, 10)
 		mustAdd(t, r, first)
@@ -586,6 +638,181 @@ func checkPair(s domain.BookingState) string {
 		return fmt.Sprintf("版 %d に明細 %v", s.Version, s.Options)
 	}
 	return ""
+}
+
+func testAddWithoutTransaction(
+	t *testing.T, r domain.BookingRepository, _ Transactor,
+) {
+	b := newBooking(t)
+	wantErr(t, r.Add(t.Context(), b), domain.ErrNoTransaction)
+	_, err := r.FindByID(t.Context(), b.ID())
+	wantErr(t, err, domain.ErrNotFound)
+}
+
+func testSaveWithoutTransaction(
+	t *testing.T, r domain.BookingRepository, tx Transactor,
+) {
+	b := newBooking(t)
+	mustAdd(t, txRepository{r, tx}, b)
+	loaded := mustFind(t, r, b.ID())
+	if err := loaded.Confirm(); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+	err := r.Save(t.Context(), loaded)
+	wantErr(t, err, domain.ErrNoTransaction)
+
+	// FindByID は Tx なしで読める。値は変わっていない
+	got := mustFind(t, r, b.ID())
+	if got.Status() != domain.StatusPending || got.Version() != 0 {
+		t.Errorf("保存された: %s v%d", got.Status(), got.Version())
+	}
+}
+
+// 外側の ctx を渡す誤りで別にコミットされないことを確かめる。
+func testOuterContextInDo(
+	t *testing.T, r domain.BookingRepository, tx Transactor,
+) {
+	outer := t.Context()
+	b := newBooking(t)
+	err := tx.Do(outer, func(context.Context) error {
+		return r.Add(outer, b)
+	})
+	wantErr(t, err, domain.ErrNoTransaction)
+	_, err = r.FindByID(outer, b.ID())
+	wantErr(t, err, domain.ErrNotFound)
+}
+
+func testZeroWithoutTx(
+	t *testing.T, r domain.BookingRepository, _ Transactor,
+) {
+	wantErr(t, r.Add(t.Context(), &domain.Booking{}),
+		domain.ErrInvalidBooking)
+	wantErr(t, r.Save(t.Context(), &domain.Booking{}),
+		domain.ErrInvalidBooking)
+}
+
+func testCanceledWithoutTx(
+	t *testing.T, r domain.BookingRepository, _ Transactor,
+) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	wantErr(t, r.Add(ctx, newBooking(t)), context.Canceled)
+	wantErr(t, r.Save(ctx, newBooking(t)), context.Canceled)
+}
+
+func testCanceledInDo(
+	t *testing.T, r domain.BookingRepository, tx Transactor,
+) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	first, second := newBooking(t), newBooking(t)
+	err := tx.Do(ctx, func(ctx context.Context) error {
+		if err := r.Add(ctx, first); err != nil {
+			return err
+		}
+		cancel()
+		return r.Add(ctx, second)
+	})
+	wantErr(t, err, context.Canceled)
+	_, err = r.FindByID(t.Context(), first.ID())
+	wantErr(t, err, domain.ErrNotFound)
+}
+
+func testFindInTx(
+	t *testing.T, r domain.BookingRepository, tx Transactor,
+) {
+	b := newBooking(t)
+	err := tx.Do(t.Context(), func(ctx context.Context) error {
+		if err := r.Add(ctx, b); err != nil {
+			return err
+		}
+		got, err := r.FindByID(ctx, b.ID())
+		if err != nil {
+			return err
+		}
+		if !got.Equal(b) {
+			t.Errorf("FindByID = %v", got.ID())
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+}
+
+func testRollback(
+	t *testing.T, r domain.BookingRepository, tx Transactor,
+) {
+	member := ids.NewID[ids.MemberMarker]()
+	saved := bookingAt(t, member, 1, 10)
+	mustAdd(t, txRepository{r, tx}, saved)
+	added := bookingAt(t, member, 2, 10)
+
+	boom := errors.New("boom")
+	err := tx.Do(t.Context(), func(ctx context.Context) error {
+		if err := r.Add(ctx, added); err != nil {
+			return err
+		}
+		loaded, err := r.FindByID(ctx, saved.ID())
+		if err != nil {
+			return err
+		}
+		if err := loaded.Confirm(); err != nil {
+			return err
+		}
+		if err := r.Save(ctx, loaded); err != nil {
+			return err
+		}
+		return boom
+	})
+	wantErr(t, err, boom)
+
+	_, err = r.FindByID(t.Context(), added.ID())
+	wantErr(t, err, domain.ErrNotFound)
+	got := mustFind(t, r, saved.ID())
+	if got.Status() != domain.StatusPending || got.Version() != 0 {
+		t.Errorf("Save が残った: %s v%d", got.Status(), got.Version())
+	}
+}
+
+func testNestedDo(
+	t *testing.T, r domain.BookingRepository, tx Transactor,
+) {
+	b := newBooking(t)
+	boom := errors.New("boom")
+	err := tx.Do(t.Context(), func(ctx context.Context) error {
+		err := tx.Do(ctx, func(ctx context.Context) error {
+			return r.Add(ctx, b)
+		})
+		if err != nil {
+			return err
+		}
+		return boom
+	})
+	wantErr(t, err, boom)
+	_, err = r.FindByID(t.Context(), b.ID())
+	wantErr(t, err, domain.ErrNotFound)
+}
+
+func testPanicRollsBack(
+	t *testing.T, r domain.BookingRepository, tx Transactor,
+) {
+	b := newBooking(t)
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("panic が伝わらなかった")
+			}
+		}()
+		_ = tx.Do(t.Context(), func(ctx context.Context) error {
+			if err := r.Add(ctx, b); err != nil {
+				return err
+			}
+			panic("boom")
+		})
+	}()
+	_, err := r.FindByID(t.Context(), b.ID())
+	wantErr(t, err, domain.ErrNotFound)
 }
 
 func testZeroBooking(t *testing.T, r domain.BookingRepository) {

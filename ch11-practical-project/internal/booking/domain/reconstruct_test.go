@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"example.com/trainingbooking/internal/booking/domain"
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -84,13 +84,13 @@ func TestReconstruct_RejectsBrokenState(t *testing.T) {
 		mutate func(*domain.BookingState)
 	}{
 		{"予約 ID がゼロ", func(s *domain.BookingState) {
-			s.ID = shared.BookingID{}
+			s.ID = ids.BookingID{}
 		}},
 		{"会員 ID がゼロ", func(s *domain.BookingState) {
-			s.MemberID = shared.MemberID{}
+			s.MemberID = ids.MemberID{}
 		}},
 		{"レッスン ID がゼロ", func(s *domain.BookingState) {
-			s.LessonID = shared.LessonID{}
+			s.LessonID = ids.LessonID{}
 		}},
 		{"状態が空", func(s *domain.BookingState) {
 			s.Status = ""

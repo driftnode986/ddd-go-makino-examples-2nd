@@ -11,8 +11,8 @@ import (
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/booking/domain/repositorytest"
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres"
+	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/dbtest"
-	"example.com/trainingbooking/internal/shared"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -24,8 +24,12 @@ func newPool(t *testing.T) *pgxpool.Pool {
 
 func TestBookingRepository_Contract(t *testing.T) {
 	repositorytest.Run(t,
-		func(t *testing.T) domain.BookingRepository {
-			return postgres.NewBookingRepository(newPool(t))
+		func(t *testing.T) (
+			domain.BookingRepository, repositorytest.Transactor,
+		) {
+			pool := newPool(t)
+			return postgres.NewBookingRepository(pool),
+				postgres.NewTransactor(pool)
 		})
 }
 
@@ -38,14 +42,14 @@ func TestExclusionConstraint_UUIDWithBtreeGist(t *testing.T) {
 		(id, member_id, lesson_id, starts_at, ends_at,
 		 fee_yen, discount_yen, status, version)
 		VALUES ($1, $2, $3, $4, $5, 3000, 0, $6, 0)`
-	member := shared.NewID[shared.MemberMarker]().String()
+	member := ids.NewID[ids.MemberMarker]().String()
 	start := time.Date(2030, time.June, 1, 10, 0, 0, 0, time.UTC)
 	exec := func(
 		who string, from time.Time, status string,
 	) error {
 		_, err := pool.Exec(ctx, insert,
-			shared.NewID[shared.BookingMarker]().String(), who,
-			shared.NewID[shared.LessonMarker]().String(),
+			ids.NewID[ids.BookingMarker]().String(), who,
+			ids.NewID[ids.LessonMarker]().String(),
 			from, from.Add(time.Hour), status)
 		return err
 	}
@@ -66,7 +70,7 @@ func TestExclusionConstraint_UUIDWithBtreeGist(t *testing.T) {
 	if err != nil {
 		t.Errorf("接する時間帯: %v", err)
 	}
-	other := shared.NewID[shared.MemberMarker]().String()
+	other := ids.NewID[ids.MemberMarker]().String()
 	if err := exec(other, start, "pending"); err != nil {
 		t.Errorf("別の会員: %v", err)
 	}
@@ -84,12 +88,15 @@ func TestTransactor_RollbackUndoesAddAndSave(t *testing.T) {
 	tx := postgres.NewTransactor(pool)
 	ctx := t.Context()
 	saved, added := newPair(t)
-	if err := repo.Add(ctx, saved); err != nil {
+	err := tx.Do(ctx, func(ctx context.Context) error {
+		return repo.Add(ctx, saved)
+	})
+	if err != nil {
 		t.Fatalf("Add: %v", err)
 	}
 
 	boom := errors.New("boom")
-	err := tx.Do(ctx, func(ctx context.Context) error {
+	err = tx.Do(ctx, func(ctx context.Context) error {
 		if err := repo.Add(ctx, added); err != nil {
 			return err
 		}
@@ -185,7 +192,7 @@ var clock = fixedClock{
 }
 
 func newBooking(
-	t *testing.T, member shared.MemberID, day int,
+	t *testing.T, member ids.MemberID, day int,
 ) *domain.Booking {
 	t.Helper()
 	jst := time.FixedZone("JST", 9*60*60)
@@ -199,8 +206,8 @@ func newBooking(
 		t.Fatalf("NewMoney: %v", err)
 	}
 	b, err := domain.NewBooking(
-		shared.NewID[shared.BookingMarker](), member,
-		shared.NewID[shared.LessonMarker](), slot, fee, clock)
+		ids.NewID[ids.BookingMarker](), member,
+		ids.NewID[ids.LessonMarker](), slot, fee, clock)
 	if err != nil {
 		t.Fatalf("NewBooking: %v", err)
 	}
@@ -210,7 +217,7 @@ func newBooking(
 // newPair は時間帯の重ならない予約を2件作る。
 func newPair(t *testing.T) (a, b *domain.Booking) {
 	t.Helper()
-	member := shared.NewID[shared.MemberMarker]()
+	member := ids.NewID[ids.MemberMarker]()
 	return newBooking(t, member, 1), newBooking(t, member, 2)
 }
 

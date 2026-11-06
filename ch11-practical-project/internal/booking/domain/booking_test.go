@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"example.com/trainingbooking/internal/booking/domain"
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 )
 
 type fixedClock struct{ now time.Time }
@@ -22,9 +22,9 @@ var (
 func newBooking(t *testing.T) *domain.Booking {
 	t.Helper()
 	b, err := domain.NewBooking(
-		shared.NewID[shared.BookingMarker](),
-		shared.NewID[shared.MemberMarker](),
-		shared.NewID[shared.LessonMarker](),
+		ids.NewID[ids.BookingMarker](),
+		ids.NewID[ids.MemberMarker](),
+		ids.NewID[ids.LessonMarker](),
 		slot(t, lessonStart, time.Hour),
 		yen(t, 3000),
 		earlier,
@@ -84,9 +84,9 @@ func TestNewBooking_StartsPending(t *testing.T) {
 }
 
 func TestNewBooking_RejectsZeroValues(t *testing.T) {
-	id := shared.NewID[shared.BookingMarker]()
-	member := shared.NewID[shared.MemberMarker]()
-	lesson := shared.NewID[shared.LessonMarker]()
+	id := ids.NewID[ids.BookingMarker]()
+	member := ids.NewID[ids.MemberMarker]()
+	lesson := ids.NewID[ids.LessonMarker]()
 	s := slot(t, lessonStart, time.Hour)
 	fee := yen(t, 3000)
 
@@ -96,15 +96,15 @@ func TestNewBooking_RejectsZeroValues(t *testing.T) {
 	}{
 		{"予約 ID", func() (*domain.Booking, error) {
 			return domain.NewBooking(
-				shared.BookingID{}, member, lesson, s, fee, earlier)
+				ids.BookingID{}, member, lesson, s, fee, earlier)
 		}},
 		{"会員 ID", func() (*domain.Booking, error) {
 			return domain.NewBooking(
-				id, shared.MemberID{}, lesson, s, fee, earlier)
+				id, ids.MemberID{}, lesson, s, fee, earlier)
 		}},
 		{"レッスン ID", func() (*domain.Booking, error) {
 			return domain.NewBooking(
-				id, member, shared.LessonID{}, s, fee, earlier)
+				id, member, ids.LessonID{}, s, fee, earlier)
 		}},
 		{"時間帯", func() (*domain.Booking, error) {
 			return domain.NewBooking(
@@ -137,9 +137,9 @@ func TestNewBooking_RejectsPastStart(t *testing.T) {
 		lessonStart, lessonStart.Add(time.Hour),
 	} {
 		_, err := domain.NewBooking(
-			shared.NewID[shared.BookingMarker](),
-			shared.NewID[shared.MemberMarker](),
-			shared.NewID[shared.LessonMarker](),
+			ids.NewID[ids.BookingMarker](),
+			ids.NewID[ids.MemberMarker](),
+			ids.NewID[ids.LessonMarker](),
 			slot(t, lessonStart, time.Hour),
 			yen(t, 3000),
 			fixedClock{now: now},

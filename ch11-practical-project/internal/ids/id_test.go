@@ -1,16 +1,16 @@
-package shared_test
+package ids_test
 
 import (
 	"errors"
 	"reflect"
 	"testing"
 
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 )
 
 func TestNewID_IsNotZeroAndUnique(t *testing.T) {
-	a := shared.NewID[shared.BookingMarker]()
-	b := shared.NewID[shared.BookingMarker]()
+	a := ids.NewID[ids.BookingMarker]()
+	b := ids.NewID[ids.BookingMarker]()
 	if a.IsZero() {
 		t.Fatal("NewID はゼロでない ID を返す")
 	}
@@ -20,8 +20,8 @@ func TestNewID_IsNotZeroAndUnique(t *testing.T) {
 }
 
 func TestParseID_RoundTrip(t *testing.T) {
-	want := shared.NewID[shared.MemberMarker]()
-	got, err := shared.ParseID[shared.MemberMarker](want.String())
+	want := ids.NewID[ids.MemberMarker]()
+	got, err := ids.ParseID[ids.MemberMarker](want.String())
 	if err != nil {
 		t.Fatalf("ParseID: %v", err)
 	}
@@ -38,15 +38,15 @@ func TestParseID_RejectsInvalid(t *testing.T) {
 		"00000000-0000-0000-0000-000000000000",
 	}
 	for _, in := range inputs {
-		_, err := shared.ParseID[shared.LessonMarker](in)
-		if !errors.Is(err, shared.ErrInvalidID) {
+		_, err := ids.ParseID[ids.LessonMarker](in)
+		if !errors.Is(err, ids.ErrInvalidID) {
 			t.Errorf("ParseID(%q) = %v", in, err)
 		}
 	}
 }
 
 func TestZeroValues_AreDetected(t *testing.T) {
-	var id shared.BookingID
+	var id ids.BookingID
 	if !id.IsZero() {
 		t.Fatal("var で宣言した ID は IsZero が true")
 	}
@@ -54,12 +54,12 @@ func TestZeroValues_AreDetected(t *testing.T) {
 
 // 次のコードはコンパイルエラーになる。
 //
-//	var m shared.MemberID
-//	var l shared.LessonID = m
+//	var m ids.MemberID
+//	var l ids.LessonID = m
 func TestID_TypesDoNotMix(t *testing.T) {
-	member := reflect.TypeFor[shared.MemberID]()
-	lesson := reflect.TypeFor[shared.LessonID]()
-	booking := reflect.TypeFor[shared.BookingID]()
+	member := reflect.TypeFor[ids.MemberID]()
+	lesson := reflect.TypeFor[ids.LessonID]()
+	booking := reflect.TypeFor[ids.BookingID]()
 	if member == lesson || lesson == booking ||
 		member == booking {
 		t.Fatal("3つの ID は別の型である")

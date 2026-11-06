@@ -1,6 +1,6 @@
-// Package shared は、コンテキストをまたいで使う ID を提供する。
+// Package ids は、コンテキストをまたいで使う ID を提供する。
 // 共有カーネルはこのパッケージの内容だけである。
-package shared
+package ids
 
 import (
 	"errors"

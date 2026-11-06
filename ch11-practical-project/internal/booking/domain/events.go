@@ -3,7 +3,7 @@ package domain
 import (
 	"time"
 
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 )
 
 // DomainEvent は集約が記録する出来事である。
@@ -15,9 +15,9 @@ type DomainEvent interface {
 
 // BookingPlaced は予約が作られたことを表す。
 type BookingPlaced struct {
-	BookingID  shared.BookingID
-	MemberID   shared.MemberID
-	LessonID   shared.LessonID
+	BookingID  ids.BookingID
+	MemberID   ids.MemberID
+	LessonID   ids.LessonID
 	OccurredAt time.Time
 }
 
@@ -34,8 +34,8 @@ func (e BookingPlaced) When() time.Time { return e.OccurredAt }
 
 // BookingCancelled は確定済みの予約が取り消されたことを表す。
 type BookingCancelled struct {
-	BookingID  shared.BookingID
-	LessonID   shared.LessonID
+	BookingID  ids.BookingID
+	LessonID   ids.LessonID
 	OccurredAt time.Time
 }
 

@@ -8,28 +8,28 @@ import (
 	"sync"
 
 	"example.com/trainingbooking/internal/booking/domain"
-	"example.com/trainingbooking/internal/shared"
+	"example.com/trainingbooking/internal/ids"
 )
 
 // BookingRepository は集約の中身をコピーで保持する。
 // 呼び出し側とポインタを共有しない。
 type BookingRepository struct {
 	mu     sync.RWMutex
-	states map[shared.BookingID]domain.BookingState
+	states map[ids.BookingID]domain.BookingState
 }
 
 // NewBookingRepository は空のリポジトリを返す。
 func NewBookingRepository() *BookingRepository {
 	return &BookingRepository{
-		states: make(map[shared.BookingID]domain.BookingState),
+		states: make(map[ids.BookingID]domain.BookingState),
 	}
 }
 
-// Add は新しい予約を保存する。
+// Add は新しい予約を ctx の Tx の中で保存する。
 func (r *BookingRepository) Add(
 	ctx context.Context, b *domain.Booking,
 ) error {
-	state, err := validState(ctx, b)
+	state, cur, err := prepare(ctx, b)
 	if err != nil {
 		return err
 	}
@@ -42,14 +42,19 @@ func (r *BookingRepository) Add(
 		return err
 	}
 	r.states[state.ID] = state
+	cur.undo = append(cur.undo, func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		delete(r.states, state.ID)
+	})
 	return nil
 }
 
-// Save は読み込んだときの版で判定して更新する。
+// Save は読み込んだときの版で判定し、ctx の Tx の中で更新する。
 func (r *BookingRepository) Save(
 	ctx context.Context, b *domain.Booking,
 ) error {
-	state, err := validState(ctx, b)
+	state, cur, err := prepare(ctx, b)
 	if err != nil {
 		return err
 	}
@@ -68,12 +73,17 @@ func (r *BookingRepository) Save(
 	}
 	state.Version++
 	r.states[state.ID] = state
+	cur.undo = append(cur.undo, func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.states[state.ID] = stored
+	})
 	return nil
 }
 
 // FindByID は保存された中身から集約を組み立てる。
 func (r *BookingRepository) FindByID(
-	ctx context.Context, id shared.BookingID,
+	ctx context.Context, id ids.BookingID,
 ) (*domain.Booking, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -87,18 +97,23 @@ func (r *BookingRepository) FindByID(
 	return domain.ReconstructBooking(state)
 }
 
-// validState は保存できる集約かを確かめて、中身のコピーを返す。
-func validState(
+// prepare は保存できる集約かと ctx の Tx を確かめて、
+// 中身のコピーと Tx を返す。
+func prepare(
 	ctx context.Context, b *domain.Booking,
-) (domain.BookingState, error) {
+) (domain.BookingState, *tx, error) {
 	if err := ctx.Err(); err != nil {
-		return domain.BookingState{}, err
+		return domain.BookingState{}, nil, err
 	}
 	state := b.State()
 	if _, err := domain.ReconstructBooking(state); err != nil {
-		return domain.BookingState{}, err
+		return domain.BookingState{}, nil, err
 	}
-	return state, nil
+	cur, ok := txFrom(ctx)
+	if !ok {
+		return domain.BookingState{}, nil, domain.ErrNoTransaction
+	}
+	return state, cur, nil
 }
 
 // checkOverlap は PostgreSQL の排他制約と同じ判定を行う。

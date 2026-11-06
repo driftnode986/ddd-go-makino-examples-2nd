@@ -10,7 +10,10 @@ import (
 
 func TestBookingRepository_Contract(t *testing.T) {
 	repositorytest.Run(t,
-		func(*testing.T) domain.BookingRepository {
-			return memory.NewBookingRepository()
+		func(*testing.T) (
+			domain.BookingRepository, repositorytest.Transactor,
+		) {
+			return memory.NewBookingRepository(),
+				memory.NewTransactor()
 		})
 }
