@@ -41,6 +41,16 @@ func TestReconstruct_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestReconstruct_RejectsDiscountOverSubtotal(t *testing.T) {
+	st := validState(t)
+	st.DiscountYen = 4001 // 料金3000と明細1000の合計を超える
+	_, err := domain.ReconstructBooking(st)
+	if !errors.Is(err, domain.ErrInvalidBooking) ||
+		!errors.Is(err, domain.ErrDiscountTooLarge) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestReconstruct_RejectsUnknownStatus(t *testing.T) {
 	st := validState(t)
 	st.Status = domain.Status("unknown")

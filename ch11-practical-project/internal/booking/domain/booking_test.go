@@ -158,7 +158,6 @@ func TestBooking_ZeroValueMethodsReturnErrors(t *testing.T) {
 		"Reject":        b.Reject(),
 		"Cancel":        b.Cancel(earlier),
 		"AddOption":     b.AddOption(opt, earlier),
-		"RemoveOption":  b.RemoveOption("シューズ", earlier),
 		"ApplyDiscount": b.ApplyDiscount(yen(t, 1)),
 	}
 	for name, err := range checks {
@@ -207,7 +206,7 @@ func TestBooking_Transitions(t *testing.T) {
 		{"Cancel", rejected, cancel, rejected, invalid},
 		{"Cancel", cancelled, cancel, cancelled, invalid},
 		{"AddOption", pending, add, pending, nil},
-		{"AddOption", confirmed, add, confirmed, nil},
+		{"AddOption", confirmed, add, confirmed, invalid},
 		{"AddOption", rejected, add, rejected, invalid},
 		{"AddOption", cancelled, add, cancelled, invalid},
 	}
@@ -273,23 +272,12 @@ func TestAddOption_AfterDeadline(t *testing.T) {
 		opt, fixedClock{now: deadline}); err != nil {
 		t.Fatalf("期限ちょうど: err = %v", err)
 	}
-	err = b.RemoveOption("シューズ", late)
+	err = b.AddOption(option(t, "タオル", 200, 1), late)
 	if !errors.Is(err, domain.ErrChangeTooLate) {
-		t.Fatalf("RemoveOption: err = %v", err)
+		t.Fatalf("2件目: err = %v", err)
 	}
 	if len(b.Options()) != 1 {
 		t.Fatalf("Options = %v", b.Options())
-	}
-}
-
-func TestRemoveOption_Status(t *testing.T) {
-	for _, s := range []domain.Status{
-		domain.StatusRejected, domain.StatusCancelled,
-	} {
-		err := inStatus(t, s).RemoveOption("シューズ", earlier)
-		if !errors.Is(err, domain.ErrInvalidTransition) {
-			t.Errorf("%s: err = %v", s, err)
-		}
 	}
 }
 
@@ -323,13 +311,6 @@ func TestAddOption_RejectsDuplicateAndZero(t *testing.T) {
 	err = b.AddOption(domain.BookingOption{}, earlier)
 	if !errors.Is(err, domain.ErrInvalidOption) {
 		t.Errorf("ゼロ値: err = %v", err)
-	}
-}
-
-func TestRemoveOption_NotFound(t *testing.T) {
-	err := newBooking(t).RemoveOption("シューズ", earlier)
-	if !errors.Is(err, domain.ErrOptionNotFound) {
-		t.Fatalf("err = %v", err)
 	}
 }
 
@@ -387,12 +368,6 @@ func TestTotal_SumsFeeOptionsAndDiscount(t *testing.T) {
 	if !b.Total().Equal(yen(t, 4000)) {
 		t.Fatalf("置き換え後の Total = %d", b.Total().Amount())
 	}
-	if err := b.RemoveOption("シューズ", earlier); err != nil {
-		t.Fatalf("RemoveOption: %v", err)
-	}
-	if !b.Total().Equal(yen(t, 3000)) {
-		t.Fatalf("削除後の Total = %d", b.Total().Amount())
-	}
 }
 
 func TestTotal_RejectsOverflowingOption(t *testing.T) {
@@ -421,23 +396,6 @@ func TestDiscount_NeverExceedsSubtotal(t *testing.T) {
 	}
 	if !b.Total().IsZero() {
 		t.Fatalf("Total = %d", b.Total().Amount())
-	}
-
-	// 明細を外すと割引が小計を超える場合は外せない
-	b = newBooking(t)
-	if err := b.AddOption(
-		option(t, "シューズ", 500, 1), earlier); err != nil {
-		t.Fatalf("AddOption: %v", err)
-	}
-	if err := b.ApplyDiscount(yen(t, 3500)); err != nil {
-		t.Fatalf("ApplyDiscount: %v", err)
-	}
-	err = b.RemoveOption("シューズ", earlier)
-	if !errors.Is(err, domain.ErrDiscountTooLarge) {
-		t.Fatalf("RemoveOption: err = %v", err)
-	}
-	if len(b.Options()) != 1 {
-		t.Fatalf("Options = %d件", len(b.Options()))
 	}
 }
 
@@ -499,7 +457,6 @@ func TestVersion_NotChangedByMethods(t *testing.T) {
 	}
 	steps := []error{
 		b.AddOption(option(t, "シューズ", 500, 1), earlier),
-		b.RemoveOption("シューズ", earlier),
 		b.ApplyDiscount(yen(t, 100)),
 		b.Confirm(),
 		b.Cancel(earlier),

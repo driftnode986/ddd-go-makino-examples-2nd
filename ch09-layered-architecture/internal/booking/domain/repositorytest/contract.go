@@ -381,8 +381,8 @@ func testNoSharing(t *testing.T, r domain.BookingRepository) {
 	}
 	// 読み出した集約を保存せずに変える
 	loaded := mustFind(t, r, b.ID())
-	if err := loaded.RemoveOption("シューズ", clock); err != nil {
-		t.Fatalf("RemoveOption: %v", err)
+	if err := loaded.AddOption(other, clock); err != nil {
+		t.Fatalf("AddOption: %v", err)
 	}
 	if err := loaded.Reject(); err != nil {
 		t.Fatalf("Reject: %v", err)
@@ -392,6 +392,21 @@ func testNoSharing(t *testing.T, r domain.BookingRepository) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("差分 (-want +got):\n%s", diff)
 	}
+}
+
+// withOptions は明細だけを入れ替えた集約を返す。集約に明細を外す
+// 操作は無いので、Save が明細を置き換えることは再構築で確かめる。
+func withOptions(
+	t *testing.T, b *domain.Booking, options ...domain.OptionState,
+) *domain.Booking {
+	t.Helper()
+	st := b.State()
+	st.Options = options
+	got, err := domain.ReconstructBooking(st)
+	if err != nil {
+		t.Fatalf("ReconstructBooking: %v", err)
+	}
+	return got
 }
 
 func testSaveReplacesOptions(
@@ -409,15 +424,11 @@ func testSaveReplacesOptions(
 	}
 	mustAdd(t, r, b)
 
-	loaded := mustFind(t, r, b.ID())
-	if err := loaded.RemoveOption("a", clock); err != nil {
-		t.Fatalf("RemoveOption: %v", err)
-	}
 	// 外した名前を付け直しても一意の制約に反しない
-	again := option(t, "a", 150, 1)
-	if err := loaded.AddOption(again, clock); err != nil {
-		t.Fatalf("AddOption: %v", err)
-	}
+	loaded := mustFind(t, r, b.ID())
+	current := loaded.State().Options
+	loaded = withOptions(t, loaded, current[1], current[2],
+		domain.OptionState{Name: "a", UnitPriceYen: 150, Quantity: 1})
 	mustSave(t, r, loaded)
 
 	got := mustFind(t, r, b.ID())
@@ -626,19 +637,13 @@ func testConsistentRead(t *testing.T, r domain.BookingRepository) {
 		case <-done:
 			return
 		}
-		loaded := mustFind(t, r, b.ID())
-		if v > 0 {
-			name := fmt.Sprintf("opt-%d", v)
-			if err := loaded.RemoveOption(name, clock); err != nil {
-				t.Fatalf("RemoveOption: %v", err)
-			}
+		next := domain.OptionState{
+			Name:         fmt.Sprintf("opt-%d", v+1),
+			UnitPriceYen: 100,
+			Quantity:     1,
 		}
-		next := fmt.Sprintf("opt-%d", v+1)
-		o := option(t, next, 100, 1)
-		if err := loaded.AddOption(o, clock); err != nil {
-			t.Fatalf("AddOption: %v", err)
-		}
-		mustSave(t, r, loaded)
+		mustSave(t, r, withOptions(
+			t, mustFind(t, r, b.ID()), next))
 	}
 }
 

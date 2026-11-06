@@ -20,7 +20,7 @@ const (
 )
 
 const (
-	// changeDeadline はキャンセルと明細の変更の期限である。
+	// changeDeadline はキャンセルと明細の追加の期限である。
 	// 開始からこの時間より前まで受け付ける。
 	changeDeadline = 24 * time.Hour
 	// maxOptions は1予約あたりの明細の上限である。
@@ -151,30 +151,18 @@ func (b *Booking) Cancel(clk Clock) error {
 	return nil
 }
 
-// AddOption は明細を追加する。
+// AddOption は pending の予約に、開始の24時間前まで明細を追加する。
 func (b *Booking) AddOption(o BookingOption, clk Clock) error {
-	if err := b.checkChangeable(clk); err != nil {
-		return err
+	if b.status != StatusPending {
+		return b.invalidTransition("add option")
+	}
+	if now := clk.Now(); b.pastDeadline(now) {
+		return fmt.Errorf("%w: now=%s", ErrChangeTooLate, now)
 	}
 	if o.IsZero() {
 		return ErrInvalidOption
 	}
 	return b.setOptions(append(slices.Clone(b.options), o))
-}
-
-// RemoveOption は名前で指定した明細を外す。
-func (b *Booking) RemoveOption(name string, clk Clock) error {
-	if err := b.checkChangeable(clk); err != nil {
-		return err
-	}
-	i := slices.IndexFunc(b.options, func(o BookingOption) bool {
-		return o.name == name
-	})
-	if i < 0 {
-		return fmt.Errorf("%w: %q", ErrOptionNotFound, name)
-	}
-	options := slices.Delete(slices.Clone(b.options), i, i+1)
-	return b.setOptions(options)
 }
 
 // ApplyDiscount は割引額を設定する。前の割引は置き換える。
@@ -197,24 +185,13 @@ func (b *Booking) PullEvents() []DomainEvent {
 	return events
 }
 
-// checkChangeable は明細を変更できるかを判定する。
-func (b *Booking) checkChangeable(clk Clock) error {
-	if !b.status.active() {
-		return b.invalidTransition("change options")
-	}
-	if now := clk.Now(); b.pastDeadline(now) {
-		return fmt.Errorf("%w: now=%s", ErrChangeTooLate, now)
-	}
-	return nil
-}
-
 // pastDeadline は開始の24時間前を過ぎたとき true を返す。
 func (b *Booking) pastDeadline(now time.Time) bool {
 	return now.After(b.slot.Start().Add(-changeDeadline))
 }
 
 // setOptions は明細の不変条件を確かめてから入れ替える。
-// 追加、削除、再構築はすべてここを通る。
+// 追加と再構築はここを通る。
 func (b *Booking) setOptions(options []BookingOption) error {
 	if len(options) > maxOptions {
 		return fmt.Errorf("%w: %d", ErrOptionLimit, len(options))
@@ -244,7 +221,7 @@ func (b *Booking) invalidTransition(op string) error {
 		"%w: %s from %q", ErrInvalidTransition, op, b.status)
 }
 
-// active は明細と割引を変更できる状態のとき true を返す。
+// active は割引を変更できる状態のとき true を返す。
 func (s Status) active() bool {
 	return s == StatusPending || s == StatusConfirmed
 }

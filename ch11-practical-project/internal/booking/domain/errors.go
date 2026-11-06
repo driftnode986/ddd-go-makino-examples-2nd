@@ -19,7 +19,6 @@ var (
 	ErrInvalidOption     = errors.New("invalid booking option")
 	ErrOptionLimit       = errors.New("too many booking options")
 	ErrDuplicateOption   = errors.New("duplicate booking option")
-	ErrOptionNotFound    = errors.New("booking option not found")
 	ErrDiscountTooLarge  = errors.New("discount exceeds subtotal")
 	ErrInvalidCoupon     = errors.New("invalid coupon")
 )
