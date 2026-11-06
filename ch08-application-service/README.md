@@ -8,11 +8,12 @@
 - 集約が記録したイベントを、同じ Tx で `OutboxWriter` に書きます。書けなければ予約も残りません
 - エラーを `ApplicationError` の `Kind` に変換し、外に出す文と原因を分けます
 - `PlaceBooking` が第5章のドメインサービスを呼びます。同じ会員の有効な予約の時間帯を読んで `DetectOverlap` で確かめ、`CouponCode` があれば `Coupons` から引いた `Coupon` で `CalculateDiscount` を計算して `ApplyDiscount` します。割引率は入力で受け取りません。不明なコードは `KindInvalid` です
+- `PlaceBooking` がオプションを受け付けます。入力は名前と数量だけで、単価は `LessonTerms` の値を使います。レッスンに無い名前は `ErrUnknownOption` で、数量の誤り、同じ名前の重複、数の上限、期限切れ、金額のあふれと同じく `KindInvalid` です
 - 読み取りの後に同時に来た予約は、第7章の排他制約が `ErrOverlap` で止めます
 - `BookingQueries` で集約を組み立てずに、明細を含む一覧と有効な予約の時間帯を読めます
 - `request_id` を context から読む `slog` のハンドラで、全ログに付けられます
 
-この章の予約は、時間帯を入力で受け、料金を `LessonTerms` で固定します。レッスンから取る形は第10章で作ります。
+この章の予約は、時間帯・料金・オプションの単価を `LessonTerms` から取ります。取得元を Catalog に入れ替えるのは第10章です。
 
 ## 第7章からの変更
 

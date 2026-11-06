@@ -3,24 +3,26 @@ package application
 import (
 	"context"
 	"errors"
-	"time"
+	"fmt"
+	"slices"
 
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/ids"
 )
 
-// LessonTerms は予約に使うレッスンの条件である。
-type LessonTerms struct {
-	Fee      domain.Money
-	Location *time.Location
+// OptionInput は選んだオプションと数量である。
+// 単価はレッスンの値を使うので、入力では受け取らない。
+type OptionInput struct {
+	Name     string
+	Quantity int
 }
 
 // PlaceBookingInput は予約の入力である。
+// 時間帯と料金はレッスンから取るので、入力では受け取らない。
 type PlaceBookingInput struct {
 	MemberID string
 	LessonID string
-	Start    time.Time
-	Duration time.Duration
+	Options  []OptionInput
 	// CouponCode は任意である。割引率は受け取らない。
 	CouponCode string
 }
@@ -100,7 +102,7 @@ func (u *PlaceBooking) checkOverlap(
 	return nil
 }
 
-// newBooking は入力と LessonTerms から集約を作る。
+// newBooking は入力とレッスンの条件から集約を作る。
 // 入力の誤りは KindInvalid にする。
 func (u *PlaceBooking) newBooking(
 	ctx context.Context, in PlaceBookingInput,
@@ -114,7 +116,7 @@ func (u *PlaceBooking) newBooking(
 		return nil, invalid("レッスン ID の形式が正しくありません", err)
 	}
 	slot, err := domain.NewTimeSlot(
-		in.Start, in.Duration, u.terms.Location)
+		u.terms.Start, u.terms.Duration, u.terms.Location)
 	if err != nil {
 		return nil, invalid("予約できない時間帯です", err)
 	}
@@ -124,6 +126,10 @@ func (u *PlaceBooking) newBooking(
 	if errors.Is(err, domain.ErrStartInPast) {
 		return nil, invalid("過去の時間帯は予約できません", err)
 	}
+	if err != nil {
+		return nil, translate(err)
+	}
+	err = addOptions(b, in.Options, u.terms.Options, u.clock)
 	if err != nil {
 		return nil, translate(err)
 	}
@@ -154,6 +160,32 @@ func (u *PlaceBooking) applyCoupon(
 	}
 	if err := b.ApplyDiscount(discount); err != nil {
 		return translate(err)
+	}
+	return nil
+}
+
+// addOptions は選んだオプションを、レッスンの単価で明細にする。
+func addOptions(
+	b *domain.Booking,
+	chosen []OptionInput,
+	offered []OfferedOption,
+	clk domain.Clock,
+) error {
+	for _, c := range chosen {
+		i := slices.IndexFunc(offered, func(o OfferedOption) bool {
+			return o.Name == c.Name
+		})
+		if i < 0 {
+			return fmt.Errorf("%w: %q", ErrUnknownOption, c.Name)
+		}
+		o, err := domain.NewBookingOption(
+			c.Name, offered[i].UnitPrice, c.Quantity)
+		if err != nil {
+			return err
+		}
+		if err := b.AddOption(o, clk); err != nil {
+			return err
+		}
 	}
 	return nil
 }
