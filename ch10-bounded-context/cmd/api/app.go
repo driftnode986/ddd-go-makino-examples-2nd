@@ -54,6 +54,7 @@ func newApp(cfg appConfig) *app {
 		catalogapp.NewReleaseSeat(lessons, processed, tx))
 
 	bookings := bookingpg.NewBookingRepository(cfg.pool)
+	queries := bookingpg.NewBookingQueries(cfg.pool)
 	writer := bookingpg.NewOutboxWriter(store)
 	results := bookingapp.NewSeatResultHandler(
 		bookings, processed, tx)
@@ -78,10 +79,10 @@ func newApp(cfg appConfig) *app {
 
 	router := presentation.NewRouter(presentation.Deps{
 		Place: bookingapp.NewPlaceBooking(
-			bookings, writer, tx, cfg.clock, catalog),
+			bookings, queries, writer, tx, cfg.clock, catalog),
 		Cancel: bookingapp.NewCancelBooking(
 			bookings, writer, tx, cfg.clock),
-		Queries: bookingpg.NewBookingQueries(cfg.pool),
+		Queries: queries,
 		Logger:  cfg.logger,
 	})
 	return &app{router: router, relay: relay}

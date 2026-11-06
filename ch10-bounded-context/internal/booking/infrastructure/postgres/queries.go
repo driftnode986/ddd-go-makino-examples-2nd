@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"example.com/trainingbooking/internal/booking/application"
+	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/ids"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -39,4 +40,24 @@ func (q *BookingQueries) ListByMember(
 		}
 	}
 	return views, nil
+}
+
+// ActiveSlotsByMember は有効な予約の時間帯を開始の順に返す。
+func (q *BookingQueries) ActiveSlotsByMember(
+	ctx context.Context, member ids.MemberID,
+) ([]domain.TimeSlot, error) {
+	rows, err := queriesFor(ctx, q.pool).ListActiveSlotsByMember(
+		ctx, member.String())
+	if err != nil {
+		return nil, err
+	}
+	slots := make([]domain.TimeSlot, len(rows))
+	for i, r := range rows {
+		slots[i], err = domain.ReconstructTimeSlot(
+			r.StartsAt, r.EndsAt)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return slots, nil
 }

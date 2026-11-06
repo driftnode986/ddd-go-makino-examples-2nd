@@ -14,6 +14,7 @@ import (
 	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/dbtest"
 	"example.com/trainingbooking/internal/platform/txn/pgtx"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestBookingQueries_Postgres(t *testing.T) {
@@ -35,7 +36,8 @@ func TestPlaceBooking_RollsBackWhenOutboxFails(t *testing.T) {
 	boom := errors.New("outbox")
 	in := placeInput()
 
-	failing := application.NewPlaceBooking(repo, failingOutbox{boom},
+	failing := application.NewPlaceBooking(
+		repo, postgres.NewBookingQueries(pool), failingOutbox{boom},
 		tx, fixedClock{now}, lessons(t))
 	_, err := failing.Execute(t.Context(), in)
 	wantKind(t, err, application.KindInternal)
@@ -62,9 +64,8 @@ func TestPlaceBooking_ConcurrentOverlapOnPostgres(t *testing.T) {
 	pool := dbtest.New(t, postgres.Migrations)
 	place := application.NewPlaceBooking(
 		postgres.NewBookingRepository(pool),
-		discardOutbox{},
-		pgtx.NewTransactor(pool),
-		fixedClock{now}, lessons(t))
+		postgres.NewBookingQueries(pool), discardOutbox{},
+		pgtx.NewTransactor(pool), fixedClock{now}, lessons(t))
 	in := placeInput()
 
 	errs := make([]error, 2)
@@ -93,5 +94,56 @@ func TestPlaceBooking_ConcurrentOverlapOnPostgres(t *testing.T) {
 	}
 	if ok != 1 || conflict != 1 {
 		t.Fatalf("成功 %d 件, 競合 %d 件", ok, conflict)
+	}
+}
+
+// 順に来た重なる予約は、Add の前に読み取りと DetectOverlap で止まる。
+func TestPlaceBooking_DetectsOverlapOnPostgres(t *testing.T) {
+	pool := dbtest.New(t, postgres.Migrations)
+	repo := postgres.NewBookingRepository(pool)
+	tx := pgtx.NewTransactor(pool)
+	queries := postgres.NewBookingQueries(pool)
+	first := application.NewPlaceBooking(
+		repo, queries, discardOutbox{}, tx,
+		fixedClock{now}, lessons(t))
+	in := placeInput()
+	if _, err := first.Execute(t.Context(), in); err != nil {
+		t.Fatalf("1件目: %v", err)
+	}
+	// Add まで進めば boom になる
+	boom := errors.New("add")
+	second := application.NewPlaceBooking(
+		failingRepository{repo, boom},
+		queries, discardOutbox{}, tx,
+		fixedClock{now}, lessons(t))
+	in.LessonID = ids.NewID[ids.LessonMarker]().String()
+	_, err := second.Execute(t.Context(), in)
+	wantKind(t, err, application.KindConflict)
+	if !errors.Is(err, domain.ErrOverlap) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// 読み取りで見えなかった予約は、排他制約が ErrOverlap で止める。
+func TestPlaceBooking_StaleReadIsStoppedByConstraint(t *testing.T) {
+	pool := dbtest.New(t, postgres.Migrations)
+	place := application.NewPlaceBooking(
+		postgres.NewBookingRepository(pool),
+		staleQueries{postgres.NewBookingQueries(pool)},
+		discardOutbox{},
+		pgtx.NewTransactor(pool),
+		fixedClock{now}, lessons(t))
+	in := placeInput()
+	if _, err := place.Execute(t.Context(), in); err != nil {
+		t.Fatalf("1件目: %v", err)
+	}
+	in.LessonID = ids.NewID[ids.LessonMarker]().String()
+	_, err := place.Execute(t.Context(), in)
+	wantKind(t, err, application.KindConflict)
+	if !errors.Is(err, domain.ErrOverlap) {
+		t.Fatalf("err = %v", err)
+	}
+	if _, ok := errors.AsType[*pgconn.PgError](err); !ok {
+		t.Errorf("排他制約のエラーでない: %v", err)
 	}
 }

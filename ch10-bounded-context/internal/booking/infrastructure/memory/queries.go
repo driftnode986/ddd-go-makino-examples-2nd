@@ -53,3 +53,29 @@ func (q *BookingQueries) ListByMember(
 	})
 	return views, nil
 }
+
+// ActiveSlotsByMember は有効な予約の時間帯を開始の順に返す。
+func (q *BookingQueries) ActiveSlotsByMember(
+	ctx context.Context, member ids.MemberID,
+) ([]domain.TimeSlot, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	q.repo.mu.RLock()
+	defer q.repo.mu.RUnlock()
+	slots := make([]domain.TimeSlot, 0)
+	for _, s := range q.repo.states {
+		if s.MemberID != member || !occupies(s.Status) {
+			continue
+		}
+		slot, err := domain.ReconstructTimeSlot(s.Start, s.End)
+		if err != nil {
+			return nil, err
+		}
+		slots = append(slots, slot)
+	}
+	slices.SortFunc(slots, func(a, b domain.TimeSlot) int {
+		return a.Start().Compare(b.Start())
+	})
+	return slots, nil
+}

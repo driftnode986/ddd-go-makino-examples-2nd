@@ -34,6 +34,7 @@ type PlaceBookingOutput struct {
 // PlaceBooking は予約を受け付ける。
 type PlaceBooking struct {
 	repo    domain.BookingRepository
+	queries BookingQueries
 	outbox  OutboxWriter
 	tx      Transactor
 	clock   domain.Clock
@@ -43,12 +44,13 @@ type PlaceBooking struct {
 // NewPlaceBooking は PlaceBooking を返す。
 func NewPlaceBooking(
 	repo domain.BookingRepository,
+	queries BookingQueries,
 	outbox OutboxWriter,
 	tx Transactor,
 	clock domain.Clock,
 	lessons LessonCatalog,
 ) *PlaceBooking {
-	return &PlaceBooking{repo, outbox, tx, clock, lessons}
+	return &PlaceBooking{repo, queries, outbox, tx, clock, lessons}
 }
 
 // Execute は予約を pending で保存し、同じ Tx で BookingPlaced を
@@ -58,6 +60,9 @@ func (u *PlaceBooking) Execute(
 ) (PlaceBookingOutput, error) {
 	b, err := u.newBooking(ctx, in)
 	if err != nil {
+		return PlaceBookingOutput{}, err
+	}
+	if err := u.checkOverlap(ctx, b); err != nil {
 		return PlaceBookingOutput{}, err
 	}
 	err = u.tx.Do(ctx, func(ctx context.Context) error {
@@ -73,6 +78,22 @@ func (u *PlaceBooking) Execute(
 		BookingID: b.ID().String(),
 		Status:    string(b.Status()),
 	}, nil
+}
+
+// checkOverlap は同じ会員の有効な予約と時間帯が重なれば拒否する。
+// ここを同時に通った予約は、リポジトリの排他制約が止める。
+func (u *PlaceBooking) checkOverlap(
+	ctx context.Context, b *domain.Booking,
+) error {
+	existing, err := u.queries.ActiveSlotsByMember(ctx, b.MemberID())
+	if err != nil {
+		return translate(err)
+	}
+	err = domain.DetectOverlap(b.Slot(), existing)
+	if err != nil {
+		return translate(err)
+	}
+	return nil
 }
 
 // newBooking は入力とレッスンの条件から集約を作る。

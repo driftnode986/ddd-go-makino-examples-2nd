@@ -42,6 +42,9 @@ func Run(t *testing.T, fixture func(t *testing.T) Fixture) {
 		{"すべての状態を返す", testStatuses},
 		{"予約が無ければ空のスライス", testEmpty},
 		{"キャンセル済みの context はエラー", testCanceled},
+		{"有効な予約の時間帯だけを開始の順に返す", testActiveSlots},
+		{"有効な予約が無ければ空のスライス", testActiveSlotsEmpty},
+		{"時間帯の読み取りも context に従う", testActiveSlotsCanceled},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) { c.run(t, fixture(t)) })
@@ -205,6 +208,64 @@ func testCanceled(t *testing.T, f Fixture) {
 	cancel()
 	member := ids.NewID[ids.MemberMarker]()
 	_, err := f.Queries.ListByMember(ctx, member)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func testActiveSlots(t *testing.T, f Fixture) {
+	member := ids.NewID[ids.MemberMarker]()
+	rejected := booking(t, member, 1)
+	if err := rejected.Reject(); err != nil {
+		t.Fatalf("Reject: %v", err)
+	}
+	cancelled := booking(t, member, 2)
+	if err := cancelled.Confirm(); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+	if err := cancelled.Cancel(clock); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+	confirmed := booking(t, member, 3)
+	if err := confirmed.Confirm(); err != nil {
+		t.Fatalf("Confirm: %v", err)
+	}
+	pending := booking(t, member, 4)
+	f.add(t, pending)
+	f.add(t, rejected)
+	f.add(t, confirmed)
+	f.add(t, cancelled)
+	f.add(t, booking(t, ids.NewID[ids.MemberMarker](), 3))
+
+	slots, err := f.Queries.ActiveSlotsByMember(t.Context(), member)
+	if err != nil {
+		t.Fatalf("ActiveSlotsByMember: %v", err)
+	}
+	if len(slots) != 2 {
+		t.Fatalf("slots = %+v", slots)
+	}
+	if !slots[0].Equal(confirmed.Slot()) ||
+		!slots[1].Equal(pending.Slot()) {
+		t.Errorf("slots = %+v", slots)
+	}
+}
+
+func testActiveSlotsEmpty(t *testing.T, f Fixture) {
+	slots, err := f.Queries.ActiveSlotsByMember(
+		t.Context(), ids.NewID[ids.MemberMarker]())
+	if err != nil {
+		t.Fatalf("ActiveSlotsByMember: %v", err)
+	}
+	if slots == nil || len(slots) != 0 {
+		t.Fatalf("slots = %#v", slots)
+	}
+}
+
+func testActiveSlotsCanceled(t *testing.T, f Fixture) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err := f.Queries.ActiveSlotsByMember(
+		ctx, ids.NewID[ids.MemberMarker]())
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v", err)
 	}

@@ -64,6 +64,16 @@ func ReconstructBooking(s BookingState) (*Booking, error) {
 	return b, nil
 }
 
+// ReconstructTimeSlot は保存された開始と終了から時間帯を組み立てる。
+// 営業時間のような新規作成のときだけの条件は省く。
+func ReconstructTimeSlot(start, end time.Time) (TimeSlot, error) {
+	if start.IsZero() || !end.After(start) {
+		return TimeSlot{}, fmt.Errorf(
+			"%w: %s to %s", ErrInvalidTimeSlot, start, end)
+	}
+	return TimeSlot{start: start, duration: end.Sub(start)}, nil
+}
+
 func rebuild(s BookingState) (*Booking, error) {
 	if s.ID.IsZero() || s.MemberID.IsZero() || s.LessonID.IsZero() {
 		return nil, fmt.Errorf("id is missing")
@@ -71,8 +81,9 @@ func rebuild(s BookingState) (*Booking, error) {
 	if !s.Status.valid() {
 		return nil, fmt.Errorf("unknown status %q", s.Status)
 	}
-	if s.Start.IsZero() || !s.End.After(s.Start) {
-		return nil, fmt.Errorf("slot %s to %s", s.Start, s.End)
+	slot, err := ReconstructTimeSlot(s.Start, s.End)
+	if err != nil {
+		return nil, err
 	}
 	if s.Version < 0 {
 		return nil, fmt.Errorf("version %d", s.Version)
@@ -96,10 +107,7 @@ func rebuild(s BookingState) (*Booking, error) {
 		id:       s.ID,
 		memberID: s.MemberID,
 		lessonID: s.LessonID,
-		slot: TimeSlot{
-			start:    s.Start,
-			duration: s.End.Sub(s.Start),
-		},
+		slot:     slot,
 		fee:      fee,
 		discount: discount,
 		status:   s.Status,

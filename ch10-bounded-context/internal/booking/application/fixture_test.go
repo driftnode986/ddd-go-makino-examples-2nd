@@ -75,16 +75,19 @@ func placeInput() application.PlaceBookingInput {
 
 // memoryDeps はユースケースが使う in-memory の部品である。
 type memoryDeps struct {
-	repo   *memory.BookingRepository
-	outbox *memory.OutboxWriter
-	tx     *memtx.Transactor
+	repo    *memory.BookingRepository
+	queries application.BookingQueries
+	outbox  *memory.OutboxWriter
+	tx      *memtx.Transactor
 }
 
 func newMemoryDeps() memoryDeps {
+	repo := memory.NewBookingRepository()
 	return memoryDeps{
-		repo:   memory.NewBookingRepository(),
-		outbox: memory.NewOutboxWriter(),
-		tx:     memtx.NewTransactor(),
+		repo:    repo,
+		queries: memory.NewBookingQueries(repo),
+		outbox:  memory.NewOutboxWriter(),
+		tx:      memtx.NewTransactor(),
 	}
 }
 
@@ -174,4 +177,25 @@ func (discardOutbox) Append(
 	context.Context, ...domain.DomainEvent,
 ) error {
 	return nil
+}
+
+// staleQueries は、同時に来た予約がまだ見えていない読み取りである。
+type staleQueries struct{ application.BookingQueries }
+
+func (staleQueries) ActiveSlotsByMember(
+	context.Context, ids.MemberID,
+) ([]domain.TimeSlot, error) {
+	return nil, nil
+}
+
+// failingQueries は時間帯の読み取りで err を返す。
+type failingQueries struct {
+	application.BookingQueries
+	err error
+}
+
+func (q failingQueries) ActiveSlotsByMember(
+	context.Context, ids.MemberID,
+) ([]domain.TimeSlot, error) {
+	return nil, q.err
 }

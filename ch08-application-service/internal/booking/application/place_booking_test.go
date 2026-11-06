@@ -19,7 +19,7 @@ func newPlace(
 ) *application.PlaceBooking {
 	t.Helper()
 	return application.NewPlaceBooking(
-		d.repo, d.outbox, d.tx, fixedClock{now}, terms(t))
+		d.repo, d.queries, d.outbox, d.tx, fixedClock{now}, terms(t))
 }
 
 func TestPlaceBooking_SavesPendingAndRecordsEvent(t *testing.T) {
@@ -153,7 +153,7 @@ func TestPlaceBooking_RepositoryFailureKeepsCause(t *testing.T) {
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(
 		failingRepository{d.repo, fmt.Errorf("add: %w", boom)},
-		d.outbox, d.tx, fixedClock{now}, terms(t))
+		d.queries, d.outbox, d.tx, fixedClock{now}, terms(t))
 
 	_, err := place.Execute(t.Context(), placeInput())
 	got := wantKind(t, err, application.KindInternal)
@@ -170,7 +170,7 @@ func TestPlaceBooking_RepositoryFailureKeepsCause(t *testing.T) {
 func TestPlaceBooking_NoTransactionIsKindInternal(t *testing.T) {
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(
-		failingRepository{d.repo, txn.ErrNoTransaction},
+		failingRepository{d.repo, txn.ErrNoTransaction}, d.queries,
 		d.outbox, d.tx, fixedClock{now}, terms(t))
 	_, err := place.Execute(t.Context(), placeInput())
 	wantKind(t, err, application.KindInternal)
@@ -191,7 +191,8 @@ func TestPlaceBooking_OutboxFailureRollsBack(t *testing.T) {
 	d := newMemoryDeps()
 	boom := errors.New("outbox")
 	place := application.NewPlaceBooking(
-		d.repo, failingOutbox{boom}, d.tx, fixedClock{now}, terms(t))
+		d.repo, d.queries, failingOutbox{boom}, d.tx,
+		fixedClock{now}, terms(t))
 	in := placeInput()
 	_, err := place.Execute(t.Context(), in)
 	wantKind(t, err, application.KindInternal)
@@ -202,5 +203,59 @@ func TestPlaceBooking_OutboxFailureRollsBack(t *testing.T) {
 	_, err = newPlace(t, d).Execute(t.Context(), in)
 	if err != nil {
 		t.Errorf("予約が残った: %v", err)
+	}
+}
+
+// 2件目はリポジトリに渡す前に止まる。Add まで進めば boom になる。
+func TestPlaceBooking_DetectsOverlapBeforeAdd(t *testing.T) {
+	d := newMemoryDeps()
+	in := placeInput()
+	_, err := newPlace(t, d).Execute(t.Context(), in)
+	if err != nil {
+		t.Fatalf("1件目: %v", err)
+	}
+	boom := errors.New("add")
+	place := application.NewPlaceBooking(
+		failingRepository{d.repo, boom}, d.queries, d.outbox, d.tx,
+		fixedClock{now}, terms(t))
+	in.LessonID = ids.NewID[ids.LessonMarker]().String()
+	_, err = place.Execute(t.Context(), in)
+	wantKind(t, err, application.KindConflict)
+	if !errors.Is(err, domain.ErrOverlap) {
+		t.Errorf("err = %v", err)
+	}
+}
+
+// 読み取りの時点で見えなかった予約は、リポジトリが ErrOverlap で止める。
+func TestPlaceBooking_StaleReadIsStoppedByRepository(t *testing.T) {
+	d := newMemoryDeps()
+	d.queries = staleQueries{d.queries}
+	place := newPlace(t, d)
+	in := placeInput()
+	if _, err := place.Execute(t.Context(), in); err != nil {
+		t.Fatalf("1件目: %v", err)
+	}
+	in.LessonID = ids.NewID[ids.LessonMarker]().String()
+	_, err := place.Execute(t.Context(), in)
+	wantKind(t, err, application.KindConflict)
+	if !errors.Is(err, domain.ErrOverlap) {
+		t.Errorf("err = %v", err)
+	}
+	if len(d.outbox.Events()) != 1 {
+		t.Errorf("events = %v", d.outbox.Events())
+	}
+}
+
+func TestPlaceBooking_QueryFailureIsKindInternal(t *testing.T) {
+	d := newMemoryDeps()
+	boom := errors.New("query")
+	d.queries = failingQueries{d.queries, boom}
+	_, err := newPlace(t, d).Execute(t.Context(), placeInput())
+	wantKind(t, err, application.KindInternal)
+	if !errors.Is(err, boom) {
+		t.Errorf("err = %v", err)
+	}
+	if len(d.outbox.Events()) != 0 {
+		t.Errorf("events = %v", d.outbox.Events())
 	}
 }

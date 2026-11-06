@@ -53,6 +53,13 @@ func (s stubUseCases) ListByMember(
 	return s.list(member)
 }
 
+// ActiveSlotsByMember は HTTP の層からは呼ばれない。
+func (s stubUseCases) ActiveSlotsByMember(
+	context.Context, ids.MemberID,
+) ([]domain.TimeSlot, error) {
+	return nil, nil
+}
+
 type stubCancel struct{ stubUseCases }
 
 func (s stubCancel) Execute(
@@ -560,7 +567,8 @@ func TestRouter_WithUseCases(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	router := presentation.NewRouter(presentation.Deps{
-		Place: application.NewPlaceBooking(repo, outbox, tx, clock,
+		Place: application.NewPlaceBooking(
+			repo, memory.NewBookingQueries(repo), outbox, tx, clock,
 			fixedLessons{application.LessonTerms{
 				Start: time.Date(
 					2030, time.June, 1, 10, 0, 0, 0, jst),

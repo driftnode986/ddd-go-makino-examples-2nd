@@ -79,15 +79,16 @@ func newRouter(
 		return nil, err
 	}
 	repo := postgres.NewBookingRepository(pool)
+	queries := postgres.NewBookingQueries(pool)
 	tx := pgtx.NewTransactor(pool)
 	outbox := postgres.NewLoggingOutbox(logger)
 	clock := systemClock{}
 	return presentation.NewRouter(presentation.Deps{
 		Place: application.NewPlaceBooking(
-			repo, outbox, tx, clock, terms),
+			repo, queries, outbox, tx, clock, terms),
 		Cancel: application.NewCancelBooking(
 			repo, outbox, tx, clock),
-		Queries: postgres.NewBookingQueries(pool),
+		Queries: queries,
 		Logger:  logger,
 	}), nil
 }

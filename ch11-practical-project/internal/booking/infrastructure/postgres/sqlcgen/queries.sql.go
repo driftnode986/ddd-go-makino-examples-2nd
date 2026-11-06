@@ -151,6 +151,39 @@ func (q *Queries) InsertBookingOption(ctx context.Context, arg InsertBookingOpti
 	return err
 }
 
+const listActiveSlotsByMember = `-- name: ListActiveSlotsByMember :many
+SELECT starts_at, ends_at
+FROM bookings
+WHERE member_id = $1 AND status IN ('pending', 'confirmed')
+ORDER BY starts_at
+`
+
+type ListActiveSlotsByMemberRow struct {
+	StartsAt time.Time
+	EndsAt   time.Time
+}
+
+// 排他制約と同じ条件で、時間帯を占める予約だけを読む。
+func (q *Queries) ListActiveSlotsByMember(ctx context.Context, memberID string) ([]ListActiveSlotsByMemberRow, error) {
+	rows, err := q.db.Query(ctx, listActiveSlotsByMember, memberID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveSlotsByMemberRow
+	for rows.Next() {
+		var i ListActiveSlotsByMemberRow
+		if err := rows.Scan(&i.StartsAt, &i.EndsAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBookingsByMember = `-- name: ListBookingsByMember :many
 SELECT
     b.id, b.lesson_id, b.starts_at, b.ends_at, b.status,

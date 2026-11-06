@@ -155,3 +155,36 @@ func TestReconstruct_RejectsZeroValueBooking(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// 保存された時間帯は、新規作成のときだけの条件を問わず読み戻せる。
+func TestReconstructTimeSlot_SkipsCreationRules(t *testing.T) {
+	start := at(1, 8) // 営業時間の外
+	end := start.Add(30 * time.Minute)
+	s, err := domain.ReconstructTimeSlot(start, end)
+	if err != nil {
+		t.Fatalf("ReconstructTimeSlot: %v", err)
+	}
+	if !s.Start().Equal(start) || !s.End().Equal(end) {
+		t.Errorf("slot = %v to %v", s.Start(), s.End())
+	}
+}
+
+func TestReconstructTimeSlot_RejectsBrokenValues(t *testing.T) {
+	start := at(1, 10)
+	cases := []struct {
+		name       string
+		start, end time.Time
+	}{
+		{"開始が無い", time.Time{}, start},
+		{"終了が開始と同じ", start, start},
+		{"終了が開始より前", start, start.Add(-time.Hour)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := domain.ReconstructTimeSlot(c.start, c.end)
+			if !errors.Is(err, domain.ErrInvalidTimeSlot) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}

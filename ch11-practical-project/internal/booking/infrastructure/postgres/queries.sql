@@ -49,3 +49,10 @@ LEFT JOIN booking_options o ON o.booking_id = b.id
 WHERE b.member_id = $1
 GROUP BY b.id
 ORDER BY b.starts_at, b.id;
+
+-- 排他制約と同じ条件で、時間帯を占める予約だけを読む。
+-- name: ListActiveSlotsByMember :many
+SELECT starts_at, ends_at
+FROM bookings
+WHERE member_id = $1 AND status IN ('pending', 'confirmed')
+ORDER BY starts_at;
