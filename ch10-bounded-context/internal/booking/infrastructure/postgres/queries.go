@@ -28,16 +28,29 @@ func (q *BookingQueries) ListByMember(
 	if err != nil {
 		return nil, err
 	}
-	views := make([]application.BookingView, len(rows))
-	for i, r := range rows {
-		views[i] = application.BookingView{
-			ID:       r.ID,
-			LessonID: r.LessonID,
-			Start:    r.StartsAt,
-			End:      r.EndsAt,
-			Status:   r.Status,
-			TotalYen: r.TotalYen,
+	views := make([]application.BookingView, 0, len(rows))
+	for _, r := range rows {
+		if n := len(views); n == 0 || views[n-1].ID != r.ID {
+			views = append(views, application.BookingView{
+				ID:       r.ID,
+				LessonID: r.LessonID,
+				Start:    r.StartsAt,
+				End:      r.EndsAt,
+				Status:   r.Status,
+				TotalYen: r.TotalYen,
+				Options:  []application.BookingOptionView{},
+			})
 		}
+		if r.OptionName == nil {
+			continue
+		}
+		last := &views[len(views)-1]
+		last.Options = append(last.Options,
+			application.BookingOptionView{
+				Name:        *r.OptionName,
+				Quantity:    int(*r.OptionQuantity),
+				SubtotalYen: r.OptionSubtotalYen,
+			})
 	}
 	return views, nil
 }

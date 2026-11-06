@@ -5,6 +5,7 @@ package querytest
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -39,6 +40,8 @@ func Run(t *testing.T, fixture func(t *testing.T) Fixture) {
 	}{
 		{"開始の順に自分の予約だけを返す", testOrderAndMember},
 		{"合計は料金と明細から割引を引いた額", testTotal},
+		{"明細は追加の順に予約ごとに返す", testOptions},
+		{"明細が無ければ空のスライス", testNoOptions},
 		{"すべての状態を返す", testStatuses},
 		{"予約が無ければ空のスライス", testEmpty},
 		{"キャンセル済みの context はエラー", testCanceled},
@@ -159,6 +162,65 @@ func testTotal(t *testing.T, f Fixture) {
 	if views[0].TotalYen != want || b.Total().Amount() != want {
 		t.Errorf("TotalYen = %d, Total = %d",
 			views[0].TotalYen, b.Total().Amount())
+	}
+}
+
+func addOption(
+	t *testing.T, b *domain.Booking, name string, price int64, n int,
+) {
+	t.Helper()
+	opt, err := domain.NewBookingOption(name, yen(t, price), n)
+	if err != nil {
+		t.Fatalf("NewBookingOption: %v", err)
+	}
+	if err := b.AddOption(opt, clock); err != nil {
+		t.Fatalf("AddOption: %v", err)
+	}
+}
+
+func testOptions(t *testing.T, f Fixture) {
+	member := ids.NewID[ids.MemberMarker]()
+	first := booking(t, member, 1)
+	// 名前の順と追加の順を変えて、追加の順で返すことを確かめる
+	addOption(t, first, "タオル", 200, 1)
+	addOption(t, first, "シューズ", 500, 2)
+	second := booking(t, member, 2)
+	addOption(t, second, "ウェア", 800, 3)
+	f.add(t, second)
+	f.add(t, first)
+
+	views := f.list(t, member)
+	if len(views) != 2 {
+		t.Fatalf("views = %+v", views)
+	}
+	want := [][]application.BookingOptionView{
+		{
+			{Name: "タオル", Quantity: 1, SubtotalYen: 200},
+			{Name: "シューズ", Quantity: 2, SubtotalYen: 1000},
+		},
+		{{Name: "ウェア", Quantity: 3, SubtotalYen: 2400}},
+	}
+	for i, w := range want {
+		if !slices.Equal(views[i].Options, w) {
+			t.Errorf("views[%d].Options = %+v", i, views[i].Options)
+		}
+	}
+	// 明細の行が増えても、合計は予約ごとに1回だけ数える
+	if views[0].TotalYen != 4200 || views[1].TotalYen != 5400 {
+		t.Errorf("TotalYen = %d, %d",
+			views[0].TotalYen, views[1].TotalYen)
+	}
+}
+
+func testNoOptions(t *testing.T, f Fixture) {
+	member := ids.NewID[ids.MemberMarker]()
+	f.add(t, booking(t, member, 1))
+	views := f.list(t, member)
+	if len(views) != 1 {
+		t.Fatalf("views = %+v", views)
+	}
+	if views[0].Options == nil || len(views[0].Options) != 0 {
+		t.Fatalf("Options = %#v", views[0].Options)
 	}
 }
 

@@ -37,18 +37,23 @@ ORDER BY o.position;
 -- name: LockMember :exec
 SELECT pg_advisory_xact_lock(hashtextextended(@member_id::text, 0));
 
--- 一覧は集約を組み立てず、合計を SQL で求める。
+-- 一覧は集約を組み立てず、合計と小計を SQL で求める。
+-- 親と明細を1つの SQL で読むので、予約の行は明細の数だけ並ぶ。
 -- name: ListBookingsByMember :many
 SELECT
     b.id, b.lesson_id, b.starts_at, b.ends_at, b.status,
     (b.fee_yen - b.discount_yen
-        + COALESCE(SUM(o.unit_price_yen * o.quantity), 0))::bigint
-        AS total_yen
+        + COALESCE(SUM(o.unit_price_yen * o.quantity)
+            OVER (PARTITION BY b.id), 0))::bigint
+        AS total_yen,
+    o.name AS option_name,
+    o.quantity AS option_quantity,
+    COALESCE(o.unit_price_yen * o.quantity, 0)::bigint
+        AS option_subtotal_yen
 FROM bookings b
 LEFT JOIN booking_options o ON o.booking_id = b.id
 WHERE b.member_id = $1
-GROUP BY b.id
-ORDER BY b.starts_at, b.id;
+ORDER BY b.starts_at, b.id, o.position;
 
 -- 排他制約と同じ条件で、時間帯を占める予約だけを読む。
 -- name: ListActiveSlotsByMember :many

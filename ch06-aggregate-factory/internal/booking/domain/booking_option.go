@@ -33,18 +33,6 @@ func NewBookingOption(
 	}, nil
 }
 
-// Name は明細の名前を返す。
-func (o BookingOption) Name() string { return o.name }
-
-// UnitPrice は単価を返す。
-func (o BookingOption) UnitPrice() Money { return o.unitPrice }
-
-// Quantity は数量を返す。
-func (o BookingOption) Quantity() int { return o.quantity }
-
-// Subtotal は単価と数量の積を返す。
-func (o BookingOption) Subtotal() Money { return o.subtotal }
-
 // Equal は全項目が同じとき true を返す。
 func (o BookingOption) Equal(other BookingOption) bool {
 	return o.name == other.name &&

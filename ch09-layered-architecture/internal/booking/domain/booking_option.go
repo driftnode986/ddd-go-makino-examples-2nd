@@ -36,9 +36,6 @@ func NewBookingOption(
 // Name は明細の名前を返す。
 func (o BookingOption) Name() string { return o.name }
 
-// UnitPrice は単価を返す。
-func (o BookingOption) UnitPrice() Money { return o.unitPrice }
-
 // Quantity は数量を返す。
 func (o BookingOption) Quantity() int { return o.quantity }
 

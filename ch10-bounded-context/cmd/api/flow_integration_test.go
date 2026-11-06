@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -126,10 +127,17 @@ func (f *flow) place(
 	return body.ID
 }
 
+type listedOption struct {
+	Name        string `json:"name"`
+	Quantity    int    `json:"quantity"`
+	SubtotalYen int64  `json:"subtotal_yen"`
+}
+
 type listed struct {
-	ID       string `json:"id"`
-	Status   string `json:"status"`
-	TotalYen int64  `json:"total_yen"`
+	ID       string         `json:"id"`
+	Status   string         `json:"status"`
+	TotalYen int64          `json:"total_yen"`
+	Options  []listedOption `json:"options"`
 }
 
 // status は GET の一覧から予約を読む。
@@ -230,6 +238,12 @@ func TestBookingFlow_ConfirmedWhenSeatAvailable(t *testing.T) {
 	// 料金とオプションの単価はレッスンの値である
 	if got.TotalYen != 3300 {
 		t.Errorf("TotalYen = %d", got.TotalYen)
+	}
+	want := []listedOption{
+		{Name: "シューズ", Quantity: 1, SubtotalYen: 300},
+	}
+	if !slices.Equal(got.Options, want) {
+		t.Errorf("Options = %+v", got.Options)
 	}
 	if n := f.lesson(lesson).ReservedSeats(); n != 1 {
 		t.Errorf("席 = %d", n)

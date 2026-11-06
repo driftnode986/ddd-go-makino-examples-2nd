@@ -47,14 +47,22 @@ type bookingResponse struct {
 	Status string `json:"status"`
 }
 
+// bookingOptionItem は一覧に載せる明細である。
+type bookingOptionItem struct {
+	Name        string `json:"name"`
+	Quantity    int    `json:"quantity"`
+	SubtotalYen int64  `json:"subtotal_yen"`
+}
+
 // bookingItem は一覧の1件である。
 type bookingItem struct {
-	ID       string    `json:"id"`
-	LessonID string    `json:"lesson_id"`
-	Start    time.Time `json:"start"`
-	End      time.Time `json:"end"`
-	Status   string    `json:"status"`
-	TotalYen int64     `json:"total_yen"`
+	ID       string              `json:"id"`
+	LessonID string              `json:"lesson_id"`
+	Start    time.Time           `json:"start"`
+	End      time.Time           `json:"end"`
+	Status   string              `json:"status"`
+	TotalYen int64               `json:"total_yen"`
+	Options  []bookingOptionItem `json:"options"`
 }
 
 // bookingListResponse は GET /members/{id}/bookings の本文である。
@@ -74,9 +82,24 @@ func toListResponse(
 			End:      v.End,
 			Status:   v.Status,
 			TotalYen: v.TotalYen,
+			Options:  toOptionItems(v.Options),
 		}
 	}
 	return bookingListResponse{Bookings: items}
+}
+
+func toOptionItems(
+	views []application.BookingOptionView,
+) []bookingOptionItem {
+	items := make([]bookingOptionItem, len(views))
+	for i, v := range views {
+		items[i] = bookingOptionItem{
+			Name:        v.Name,
+			Quantity:    v.Quantity,
+			SubtotalYen: v.SubtotalYen,
+		}
+	}
+	return items
 }
 
 // errorResponse は失敗したときの本文である。

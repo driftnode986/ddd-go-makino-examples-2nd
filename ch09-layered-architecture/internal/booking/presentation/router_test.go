@@ -429,6 +429,9 @@ func TestGetBookings(t *testing.T) {
 			End:      start.Add(time.Hour),
 			Status:   "pending",
 			TotalYen: 3000,
+			Options: []application.BookingOptionView{
+				{Name: "シューズ", Quantity: 2, SubtotalYen: 600},
+			},
 		}}, nil
 	}}
 	var buf bytes.Buffer
@@ -450,6 +453,26 @@ func TestGetBookings(t *testing.T) {
 		got["start"] != "2030-06-01T10:00:00+09:00" ||
 		got["end"] != "2030-06-01T11:00:00+09:00" {
 		t.Errorf("booking = %v", got)
+	}
+	const options = `"options":[` +
+		`{"name":"シューズ","quantity":2,"subtotal_yen":600}]`
+	if !strings.Contains(rec.Body.String(), options) {
+		t.Errorf("明細: %s", rec.Body)
+	}
+}
+
+func TestGetBookings_NoOptionsIsArray(t *testing.T) {
+	s := stubUseCases{list: func(
+		ids.MemberID,
+	) ([]application.BookingView, error) {
+		return []application.BookingView{{ID: "b1"}}, nil
+	}}
+	var buf bytes.Buffer
+	path := "/members/" + ids.NewID[ids.MemberMarker]().String() +
+		"/bookings"
+	rec := do(newRouter(s, &buf), "GET", path, "")
+	if !strings.Contains(rec.Body.String(), `"options":[]`) {
+		t.Errorf("body = %s", rec.Body)
 	}
 }
 

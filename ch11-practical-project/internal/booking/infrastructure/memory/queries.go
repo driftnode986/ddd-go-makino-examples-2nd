@@ -45,6 +45,7 @@ func (q *BookingQueries) ListByMember(
 			End:      s.End,
 			Status:   string(s.Status),
 			TotalYen: b.Total().Amount(),
+			Options:  optionViews(b),
 		})
 	}
 	slices.SortFunc(views, func(a, b application.BookingView) int {
@@ -52,6 +53,19 @@ func (q *BookingQueries) ListByMember(
 			a.Start.Compare(b.Start), cmp.Compare(a.ID, b.ID))
 	})
 	return views, nil
+}
+
+func optionViews(b *domain.Booking) []application.BookingOptionView {
+	options := b.Options()
+	views := make([]application.BookingOptionView, len(options))
+	for i, o := range options {
+		views[i] = application.BookingOptionView{
+			Name:        o.Name(),
+			Quantity:    o.Quantity(),
+			SubtotalYen: o.Subtotal().Amount(),
+		}
+	}
+	return views
 }
 
 // ActiveSlotsByMember は有効な予約の時間帯を開始の順に返す。
