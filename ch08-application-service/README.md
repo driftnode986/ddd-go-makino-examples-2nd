@@ -9,7 +9,7 @@
 - エラーを `ApplicationError` の `Kind` に変換し、外に出す文と原因を分けます
 - `PlaceBooking` が第5章のドメインサービスを呼びます。同じ会員の有効な予約の時間帯を読んで `DetectOverlap` で確かめ、`CouponCode` があれば `Coupons` から引いた `Coupon` で `CalculateDiscount` を計算して `ApplyDiscount` します。割引率は入力で受け取りません。不明なコードは `KindInvalid` です
 - 読み取りの後に同時に来た予約は、第7章の排他制約が `ErrOverlap` で止めます
-- `BookingQueries` で集約を組み立てずに一覧と有効な予約の時間帯を読めます
+- `BookingQueries` で集約を組み立てずに、明細を含む一覧と有効な予約の時間帯を読めます
 - `request_id` を context から読む `slog` のハンドラで、全ログに付けられます
 
 この章の予約は、時間帯を入力で受け、料金を `LessonTerms` で固定します。レッスンから取る形は第10章で作ります。
@@ -17,7 +17,7 @@
 ## 第7章からの変更
 
 - 追加: `internal/booking/application/`、`internal/booking/infrastructure/fixed/`（クーポンの固定の表）、`internal/booking/domain/events.go`、`internal/platform/logging/`、`internal/booking/infrastructure/memory/` の `outbox.go`・`queries.go`、`internal/booking/infrastructure/postgres/queries.go`
-- 変更: `booking.go` がイベントを記録します。`booking_state.go` に `ReconstructTimeSlot` を追加しました。`queries.sql` と生成コードに一覧と有効な予約の時間帯を追加しました
+- 変更: `booking.go` がイベントを記録します。`booking_state.go` に `ReconstructTimeSlot` を追加しました。`booking_option.go` に in-memory の一覧が読む `Name`・`Quantity`・`Subtotal` を追加しました。`queries.sql` と生成コードに一覧と有効な予約の時間帯を追加しました
 
 ## 動かし方
 

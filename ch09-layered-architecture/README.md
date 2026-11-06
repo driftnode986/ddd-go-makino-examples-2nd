@@ -73,7 +73,7 @@ curl -i -X POST localhost:8080/bookings \
 {"kind":"conflict","message":"同じ時間帯に別の予約があります"}
 ```
 
-一覧には `"status":"pending"`・`"total_yen":3000` の予約が出ます。クーポンつきの予約の合計は `"total_yen":2700` です。
+一覧には `"status":"pending"`・`"total_yen":3000`・`"options":[]` の予約が出ます。この章の `POST /bookings` はオプションを受け取らないので、`options` は空です（第10章で受け取ります）。クーポンつきの予約の合計は `"total_yen":2700` です。
 
 `coupon_code` を `UNKNOWN` のような不明なコードにすると、`400` と次の本文を返し、予約は保存されません。
 
