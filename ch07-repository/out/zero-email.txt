@@ -1,5 +1,0 @@
-=== RUN   TestZeroEmailCompiles
-    pitfalls_test.go:26: String="" IsZero=true
---- PASS: TestZeroEmailCompiles (0.00s)
-PASS
-ok  example.com/trainingbooking/steps/pitfalls  0.112s

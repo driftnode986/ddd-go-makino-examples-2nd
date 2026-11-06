@@ -16,7 +16,7 @@
 - `internal/booking/domain/money.go` `Money`
 - `internal/booking/domain/time_slot.go` `TimeSlot`
 
-- `steps/` 本文で失敗を動かすためのコード。`steps/testdata/` はわざとコンパイルできないコードで、`go build ./...` の対象になりません
+- `steps/` 本文で失敗を動かすためのコード（この章だけにあります）。`steps/testdata/` はわざとコンパイルできないコードで、`go build ./...` の対象になりません
 - `out/` 本に載せた実行結果。`bash out/regen.sh` で作り直せます
 
 ## 動かし方

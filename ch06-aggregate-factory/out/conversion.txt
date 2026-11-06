@@ -1,4 +1,0 @@
-=== RUN   TestID_ConversionIsNotBlocked
---- PASS: TestID_ConversionIsNotBlocked (0.00s)
-PASS
-ok  example.com/trainingbooking/internal/ids    0.126s

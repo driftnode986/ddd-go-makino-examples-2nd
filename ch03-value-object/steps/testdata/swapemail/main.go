@@ -3,6 +3,8 @@ package main
 
 import "example.com/trainingbooking/internal/identity/domain"
 
+// #region call
+
 func registerMember(name string, email domain.Email) {}
 
 func main() {
@@ -10,3 +12,5 @@ func main() {
 	email, _ := domain.NewEmail("taro@example.com")
 	registerMember(email, name) // 引数が逆
 }
+
+// #endregion

@@ -1,7 +1,3 @@
-=== RUN   TestSameInstantDifferentResult
-    naive_test.go:14: same instant: true
-    naive_test.go:15: +09:00: true
-    naive_test.go:16: Z:      false
---- PASS: TestSameInstantDifferentResult (0.00s)
-PASS
-ok  example.com/trainingbooking/steps/naiveslot 0.126s
+same instant: true
++09:00: true
+Z:      false

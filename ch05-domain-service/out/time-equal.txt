@@ -1,6 +1,0 @@
-=== RUN   TestOperatorOnTimeSlot
-    pitfalls_test.go:65: a == b: false
-    pitfalls_test.go:66: a.Equal(b): true
---- PASS: TestOperatorOnTimeSlot (0.00s)
-PASS
-ok  example.com/trainingbooking/steps/pitfalls  0.100s

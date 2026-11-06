@@ -12,73 +12,66 @@ import (
 	identity "example.com/trainingbooking/internal/identity/domain"
 )
 
-// #region parse-address
 func TestParseAddressAcceptsDisplayName(t *testing.T) {
+	// #region parse-address
 	addr, _ := mail.ParseAddress("Taro <taro@example.com>")
 	t.Logf("name=%q address=%q", addr.Name, addr.Address)
+	// #endregion
 }
 
-// #endregion
-
-// #region zero-email
 func TestZeroEmailCompiles(t *testing.T) {
+	// #region zero-email
 	var e identity.Email
 	t.Logf("String=%q IsZero=%v", e.String(), e.IsZero())
+	// #endregion
 	if !e.IsZero() {
 		t.Fatal("var で宣言した Email は IsZero が true")
 	}
 }
 
-// #endregion
-
-// #region float
 func TestFloatPrice(t *testing.T) {
+	// #region float
 	price := 3000.0
 	withTax := price * 1.1
 	t.Logf("withTax=%v ceil=%v", withTax, math.Ceil(withTax))
+	// #endregion
 	if math.Ceil(withTax) != 3301 {
 		t.Fatal("誤差で1円増えるはず")
 	}
 }
 
-// #endregion
-
-// #region overflow
 func TestInt64Overflow(t *testing.T) {
+	// #region overflow
 	total := int64(math.MaxInt64)
-	one := int64(1)
-	total += one
+	total++
 	t.Logf("total=%d", total)
+	// #endregion
 	if total >= 0 {
 		t.Fatal("負の値になるはず")
 	}
 }
 
-// #endregion
-
-// #region time-equal
 func TestOperatorOnTimeSlot(t *testing.T) {
+	// #region time-equal
 	jst := time.FixedZone("JST", 9*60*60)
 	start := time.Date(2030, time.June, 1, 10, 0, 0, 0, jst)
 	a, _ := booking.NewTimeSlot(start, time.Hour, jst)
 	b, _ := booking.NewTimeSlot(start.UTC(), time.Hour, jst)
 	t.Logf("a == b: %v", a == b)
 	t.Logf("a.Equal(b): %v", a.Equal(b))
+	// #endregion
 	if a == b || !a.Equal(b) {
 		t.Fatal("== は false、Equal は true のはず")
 	}
 }
 
-// #endregion
-
-// #region json
 func TestMarshalEmail(t *testing.T) {
+	// #region json
 	e, _ := identity.NewEmail("taro@example.com")
 	b, _ := json.Marshal(e)
 	t.Logf("%s", b)
+	// #endregion
 	if string(b) != "{}" {
 		t.Fatalf("非公開フィールドは JSON に出ないはず: %s", b)
 	}
 }
-
-// #endregion

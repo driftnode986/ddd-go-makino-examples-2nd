@@ -1,7 +1,0 @@
-=== RUN   TestSwappedArguments
-    stringargs_test.go:14: name="taro@example.com" email="山田太郎"
-    stringargs_test.go:21: member=L-100 lesson=M-001
-    stringargs_test.go:22: price=-3000 start=04:00
---- PASS: TestSwappedArguments (0.00s)
-PASS
-ok  example.com/trainingbooking/steps/stringargs    0.255s

@@ -1,9 +1,0 @@
-# example.com/trainingbooking/steps/testdata/swapids
-steps/testdata/swapids/main.go:19:15: cannot use lessonID (variable
-of struct type ids.ID[ids.LessonMarker]) as ids.MemberID value in
-argument to placeBooking
-steps/testdata/swapids/main.go:19:25: cannot use memberID (variable
-of struct type ids.ID[ids.MemberMarker]) as ids.LessonID value in
-argument to placeBooking
-steps/testdata/swapids/main.go:19:35: cannot use -3000 (untyped int
-constant) as domain.Money value in argument to placeBooking

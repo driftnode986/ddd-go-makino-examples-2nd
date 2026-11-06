@@ -1,5 +1,2 @@
-=== RUN   TestConstructorIsBypassed
-    email_test.go:13: a="not-an-email" b="山田太郎"
+a="not-an-email" b="山田太郎"
 --- PASS: TestConstructorIsBypassed (0.00s)
-PASS
-ok  example.com/trainingbooking/steps/stringemail   0.086s

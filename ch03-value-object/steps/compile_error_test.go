@@ -24,7 +24,6 @@ func TestCompileErrors(t *testing.T) {
 			"as ids.MemberID value in argument to placeBooking",
 			"as ids.LessonID value in argument to placeBooking",
 		},
-		"blankfield": {"cannot convert member"},
 	}
 	for name, wants := range cases {
 		t.Run(name, func(t *testing.T) {

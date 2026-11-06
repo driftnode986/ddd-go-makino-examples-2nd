@@ -25,3 +25,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Terraform（このサンプルでは使わないが、誤って入れないために置く）
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars

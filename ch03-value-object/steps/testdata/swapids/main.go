@@ -6,6 +6,8 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
+// #region call
+
 func placeBooking(
 	member ids.MemberID, lesson ids.LessonID,
 	fee domain.Money, slot domain.TimeSlot,
@@ -18,3 +20,5 @@ func main() {
 	var slot domain.TimeSlot
 	placeBooking(lessonID, memberID, -3000, slot)
 }
+
+// #endregion

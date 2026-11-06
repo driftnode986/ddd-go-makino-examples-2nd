@@ -1,5 +1,0 @@
-=== RUN   TestFloatPrice
-    pitfalls_test.go:38: withTax=3300.0000000000005 ceil=3301
---- PASS: TestFloatPrice (0.00s)
-PASS
-ok  example.com/trainingbooking/steps/pitfalls  0.128s

@@ -1,8 +1,0 @@
-# example.com/trainingbooking/steps/testdata/emailliteral
-steps/testdata/emailliteral/main.go:7:19: cannot convert
-"not-an-email" (untyped string constant) to type domain.Email
-steps/testdata/emailliteral/main.go:8:19: cannot refer to unexported
-field value in struct literal of type domain.Email
-steps/testdata/emailliteral/main.go:9:23: cannot use "not-an-email"
-(untyped string constant) as domain.Email value in variable
-declaration

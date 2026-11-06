@@ -1,6 +1,0 @@
-# example.com/trainingbooking/steps/testdata/swapemail
-steps/testdata/swapemail/main.go:11:17: cannot use email (variable
-of struct type domain.Email) as string value in argument to
-registerMember
-steps/testdata/swapemail/main.go:11:24: cannot use name (variable of
-type string) as domain.Email value in argument to registerMember
