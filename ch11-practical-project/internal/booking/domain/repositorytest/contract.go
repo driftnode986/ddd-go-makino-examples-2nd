@@ -588,8 +588,14 @@ func testConsistentRead(t *testing.T, r domain.BookingRepository) {
 	mustAdd(t, r, b)
 
 	stop := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Go(func() {
+	read := make(chan struct{}, 1)
+	done := make(chan struct{})
+	defer func() {
+		close(stop)
+		<-done
+	}()
+	go func() {
+		defer close(done)
 		for {
 			select {
 			case <-stop:
@@ -605,10 +611,21 @@ func testConsistentRead(t *testing.T, r domain.BookingRepository) {
 				t.Error(msg)
 				return
 			}
+			select {
+			case read <- struct{}{}:
+			default:
+			}
 		}
-	})
+	}()
 
 	for v := range writes {
+		// 読み取りが動いていることを確かめてから更新する。
+		// 読み取りが1回も走らないまま通るのを防ぐ
+		select {
+		case <-read:
+		case <-done:
+			return
+		}
 		loaded := mustFind(t, r, b.ID())
 		if v > 0 {
 			name := fmt.Sprintf("opt-%d", v)
@@ -623,8 +640,6 @@ func testConsistentRead(t *testing.T, r domain.BookingRepository) {
 		}
 		mustSave(t, r, loaded)
 	}
-	close(stop)
-	wg.Wait()
 }
 
 func checkPair(s domain.BookingState) string {
