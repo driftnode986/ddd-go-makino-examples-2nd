@@ -203,10 +203,15 @@ linters:
     paths:
       - sqlcgen/
     rules:
-      # steps/ は失敗を見せるために、わざと誤ったコードを置いています。
+      # 本文で失敗を見せるために、わざと誤らせたコードです。
       - linters:
           - staticcheck
-        path: /steps/
+        path: /steps/valuereceiver/
+        text: SA4005
+      - linters:
+          - staticcheck
+        path: /steps/pitfalls/
+        text: SA9005
       # import の行は折り返せません。
       - linters:
           - lll
