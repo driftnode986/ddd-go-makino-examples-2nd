@@ -1,0 +1,7 @@
+{"level":"ERROR","msg":"request failed","error":"internal:
+内部エラーが発生しました: failed to connect to `user=dev
+database=trainingbooking`:\n\t[::1]:5432 (localhost): dial error:
+dial tcp [::1]:5432: connect: connection refused\n\t127.0.0.1:5432
+(localhost): dial error: dial tcp 127.0.0.1:5432: connect:
+connection
+refused","request_id":"01a1b331-0761-728b-8184-2cf0a351a381"}

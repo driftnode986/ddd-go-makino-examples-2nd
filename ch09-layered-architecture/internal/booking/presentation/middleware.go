@@ -1,6 +1,7 @@
 package presentation
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
@@ -35,6 +36,8 @@ func (r *statusRecorder) Unwrap() http.ResponseWriter {
 	return r.ResponseWriter
 }
 
+// #region request-id
+
 // withRequestID は request_id を採番して context と応答に入れる。
 func withRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(
@@ -45,6 +48,10 @@ func withRequestID(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 }
+
+// #endregion
+
+// #region access-log
 
 // withAccessLog は1リクエストにつき1行を記録する。
 func withAccessLog(
@@ -67,6 +74,25 @@ func withAccessLog(
 			)
 		})
 }
+
+// #endregion
+
+// #region timeout
+
+// withTimeout は1リクエストの処理に期限を付ける。期限が来ると
+// ctx を受け取った DB の呼び出しがエラーで返る。
+func withTimeout(d time.Duration, next http.Handler) http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), d)
+			defer cancel()
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+}
+
+// #endregion
+
+// #region recovery
 
 // withRecovery は panic を記録して 500 を返す。
 // 本文に panic の値を出さない。
@@ -95,3 +121,5 @@ func withRecovery(h *handlers, next http.Handler) http.Handler {
 			next.ServeHTTP(rec, r)
 		})
 }
+
+// #endregion

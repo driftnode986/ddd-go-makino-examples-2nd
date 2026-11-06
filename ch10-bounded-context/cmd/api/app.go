@@ -59,9 +59,9 @@ func newApp(cfg appConfig) *app {
 	writer := bookingpg.NewOutboxWriter(store)
 	results := bookingapp.NewSeatResultHandler(
 		bookings, processed, tx)
+	jst := time.FixedZone("JST", 9*60*60)
 	catalog := acl.NewLessonCatalog(
-		catalogapp.NewLessonReader(lessons),
-		time.FixedZone("JST", 9*60*60))
+		catalogapp.NewLessonReader(lessons), jst)
 
 	var relayStore outbox.RelayStore = store
 	if cfg.relayStore != nil {
@@ -84,8 +84,10 @@ func newApp(cfg appConfig) *app {
 			fixed.NewCoupons(), catalog),
 		Cancel: bookingapp.NewCancelBooking(
 			bookings, writer, tx, cfg.clock),
-		Queries: queries,
-		Logger:  cfg.logger,
+		Queries:  queries,
+		Logger:   cfg.logger,
+		Location: jst,
+		Timeout:  requestTimeout,
 	})
 	return &app{router: router, relay: relay}
 }

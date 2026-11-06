@@ -116,6 +116,8 @@ linters:
               desc: domain から外側のレイヤーを import できません
             - pkg: github.com/jackc/pgx/
               desc: domain から pgx を import できません
+            - pkg: net/http$
+              desc: domain は HTTP を知りません
         # contract は他のコンテキストに公開する型だけを置きます。
         # 内側のレイヤーに依存すると、相手に中身が漏れます。
         contract-layer:
@@ -159,6 +161,28 @@ linters:
               desc: domain から Tx を import できません
             - pkg: example.com/trainingbooking/internal/platform/outbox
               desc: domain は outbox を知りません
+        # presentation はユースケースを呼ぶだけです。集約にも DB にも触りません。
+        # テストは実装を組み立てて使います。
+        presentation-layer:
+          list-mode: lax
+          files:
+            - "**/internal/*/presentation/**"
+            - "!$test"
+          deny:
+            - pkg: example.com/trainingbooking/internal/booking/domain
+              desc: presentation から domain を import できません
+            - pkg: example.com/trainingbooking/internal/booking/infrastructure
+              desc: presentation から infrastructure を import できません
+            - pkg: example.com/trainingbooking/internal/catalog/domain
+              desc: presentation から domain を import できません
+            - pkg: example.com/trainingbooking/internal/catalog/infrastructure
+              desc: presentation から infrastructure を import できません
+            - pkg: example.com/trainingbooking/internal/identity/domain
+              desc: presentation から domain を import できません
+            - pkg: example.com/trainingbooking/internal/identity/infrastructure
+              desc: presentation から infrastructure を import できません
+            - pkg: github.com/jackc/pgx/
+              desc: presentation から pgx を import できません
         # application は実装を知りません。テストは実装を組み立てて使います。
         application-layer:
           list-mode: lax
@@ -198,6 +222,8 @@ linters:
               desc: application から Tx の実装を import できません
             - pkg: github.com/jackc/pgx/
               desc: application から pgx を import できません
+            - pkg: net/http$
+              desc: application は HTTP を知りません
   exclusions:
     generated: strict
     paths:
@@ -211,6 +237,10 @@ linters:
       - linters:
           - staticcheck
         path: /steps/pitfalls/
+        text: SA9005
+      - linters:
+          - staticcheck
+        path: /steps/encodeaggregate/
         text: SA9005
       - linters:
           - staticcheck

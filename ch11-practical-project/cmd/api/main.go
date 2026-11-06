@@ -22,12 +22,17 @@ const (
 		"trainingbooking?sslmode=disable"
 	defaultAddr     = "localhost:8080"
 	shutdownTimeout = 10 * time.Second
+	requestTimeout  = 5 * time.Second
 )
+
+// #region system-clock
 
 // systemClock は実際の現在時刻を返す。
 type systemClock struct{}
 
 func (systemClock) Now() time.Time { return time.Now() }
+
+// #endregion
 
 func main() {
 	logger := slog.New(logging.NewContextHandler(
@@ -65,6 +70,9 @@ func run(logger *slog.Logger) error {
 		Addr:              cmp.Or(os.Getenv("ADDR"), defaultAddr),
 		Handler:           a.router,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	err = serve(ctx, server, logger)
 	// サーバーが先に止まっても配信処理を止め、終わるまで待つ。
@@ -77,7 +85,10 @@ func run(logger *slog.Logger) error {
 	return err
 }
 
-// serve は ctx が終わるまで受け付け、処理中のリクエストを待って止まる。
+// #region serve
+
+// serve は ctx が終わるまで受け付け、処理中のリクエストを待って
+// 止まる。
 func serve(
 	ctx context.Context, server *http.Server, logger *slog.Logger,
 ) error {
@@ -101,6 +112,10 @@ func serve(
 	return nil
 }
 
+// #endregion
+
+// #region shutdown
+
 // shutdown は処理中のリクエストを timeout まで待つ。残ったものは
 // 接続を閉じて中断する。DB を待ったまま残ると接続が返らず、
 // プールを閉じる処理が止まる。
@@ -115,3 +130,5 @@ func shutdown(server *http.Server, timeout time.Duration) error {
 	}
 	return nil
 }
+
+// #endregion

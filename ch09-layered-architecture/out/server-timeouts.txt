@@ -1,0 +1,3 @@
+ReadHeaderTimeout だけ: 読み取りが終わった = false
+ReadTimeout あり: 読み取りが終わった = true
+WriteTimeout: 応答は届かない / ハンドラの ctx.Err = <nil>

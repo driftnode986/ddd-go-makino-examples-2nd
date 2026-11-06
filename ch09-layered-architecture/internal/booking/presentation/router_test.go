@@ -54,13 +54,6 @@ func (s stubUseCases) ListByMember(
 	return s.list(member)
 }
 
-// ActiveSlotsByMember は HTTP の層からは呼ばれない。
-func (s stubUseCases) ActiveSlotsByMember(
-	context.Context, ids.MemberID,
-) ([]domain.TimeSlot, error) {
-	return nil, nil
-}
-
 type stubCancel struct{ stubUseCases }
 
 func (s stubCancel) Execute(
@@ -75,10 +68,12 @@ func newRouter(
 	logger := slog.New(logging.NewContextHandler(
 		slog.NewJSONHandler(buf, nil)))
 	return presentation.NewRouter(presentation.Deps{
-		Place:   s,
-		Cancel:  stubCancel{s},
-		Queries: s,
-		Logger:  logger,
+		Place:    s,
+		Cancel:   stubCancel{s},
+		Queries:  s,
+		Logger:   logger,
+		Location: jst,
+		Timeout:  time.Second,
 	})
 }
 
@@ -462,6 +457,56 @@ func TestGetBookings(t *testing.T) {
 	}
 }
 
+// 同じ瞬間なら、DB の接続のタイムゾーンによらず同じ文字列を返す。
+func TestGetBookings_StartIsInLocation(t *testing.T) {
+	start := time.Date(2030, time.June, 1, 1, 0, 0, 0, time.UTC)
+	s := stubUseCases{list: func(
+		ids.MemberID,
+	) ([]application.BookingView, error) {
+		return []application.BookingView{{
+			Start: start, End: start.Add(time.Hour),
+		}}, nil
+	}}
+	var buf bytes.Buffer
+	member := ids.NewID[ids.MemberMarker]().String()
+	rec := do(newRouter(s, &buf), "GET",
+		"/members/"+member+"/bookings", "")
+	const want = `"start":"2030-06-01T10:00:00+09:00"`
+	if !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("body = %s", rec.Body)
+	}
+}
+
+// 期限が来ると ctx が終わり、500 と WARN のログになる。
+func TestTimeout_EndsTheRequest(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	router := presentation.NewRouter(presentation.Deps{
+		Place:    blockingPlace{},
+		Logger:   logger,
+		Location: jst,
+		Timeout:  10 * time.Millisecond,
+	})
+	rec := do(router, "POST", "/bookings", validBody)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	levels := levelsOf(t, &buf, "request failed")
+	if len(levels) != 1 || levels[0] != "WARN" {
+		t.Errorf("levels = %v", levels)
+	}
+}
+
+// blockingPlace は ctx が終わるまで返らない。応答の遅い DB の代わりである。
+type blockingPlace struct{}
+
+func (blockingPlace) Execute(
+	ctx context.Context, _ application.PlaceBookingInput,
+) (application.PlaceBookingOutput, error) {
+	<-ctx.Done()
+	return application.PlaceBookingOutput{}, ctx.Err()
+}
+
 func TestGetBookings_NoOptionsIsArray(t *testing.T) {
 	s := stubUseCases{list: func(
 		ids.MemberID,
@@ -625,8 +670,10 @@ func TestRouter_WithUseCases(t *testing.T) {
 			fixed.NewCoupons(), terms),
 		Cancel: application.NewCancelBooking(
 			repo, outbox, tx, clock),
-		Queries: memory.NewBookingQueries(repo),
-		Logger:  slog.New(slog.NewJSONHandler(&buf, nil)),
+		Queries:  memory.NewBookingQueries(repo),
+		Logger:   slog.New(slog.NewJSONHandler(&buf, nil)),
+		Location: jst,
+		Timeout:  time.Second,
 	})
 
 	rec := do(router, "POST", "/bookings", validBody)

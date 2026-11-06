@@ -1,0 +1,2 @@
+Close:    status = 0, EOF = true
+Shutdown: status = 201, EOF = false

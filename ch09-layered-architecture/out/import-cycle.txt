@@ -1,0 +1,4 @@
+go build の終了コード: 1
+package domain
+    imports application from zz_cycle.go
+    imports domain from cancel_booking.go: import cycle not allowed

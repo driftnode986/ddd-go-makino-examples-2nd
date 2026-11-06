@@ -1,0 +1,5 @@
+go build の終了コード: 0
+presentation/zz_repo.go:3:8: import
+'example.com/trainingbooking/internal/booking/infrastructure/postgres
+' is not allowed from list 'presentation-layer': presentation から
+infrastructure を import できません (depguard)

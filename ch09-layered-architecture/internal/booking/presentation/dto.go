@@ -18,6 +18,8 @@ type optionRequest struct {
 	Quantity int    `json:"quantity"`
 }
 
+// #region place-request
+
 // placeBookingRequest は POST /bookings の本文である。
 // 時間帯と料金はレッスンから取るので受け取らない。
 type placeBookingRequest struct {
@@ -42,6 +44,8 @@ func (r placeBookingRequest) input() application.PlaceBookingInput {
 		CouponCode: r.CouponCode,
 	}
 }
+
+// #endregion
 
 // bookingResponse は予約とキャンセルの結果である。
 type bookingResponse struct {
@@ -72,16 +76,18 @@ type bookingListResponse struct {
 	Bookings []bookingItem `json:"bookings"`
 }
 
+// #region list-response
+
 func toListResponse(
-	views []application.BookingView,
+	views []application.BookingView, loc *time.Location,
 ) bookingListResponse {
 	items := make([]bookingItem, len(views))
 	for i, v := range views {
 		items[i] = bookingItem{
 			ID:       v.ID,
 			LessonID: v.LessonID,
-			Start:    v.Start,
-			End:      v.End,
+			Start:    v.Start.In(loc),
+			End:      v.End.In(loc),
 			Status:   v.Status,
 			TotalYen: v.TotalYen,
 			Options:  toOptionItems(v.Options),
@@ -89,6 +95,8 @@ func toListResponse(
 	}
 	return bookingListResponse{Bookings: items}
 }
+
+// #endregion
 
 func toOptionItems(
 	views []application.BookingOptionView,
@@ -110,6 +118,8 @@ type errorResponse struct {
 	Message string           `json:"message"`
 }
 
+// #region decode-json
+
 // decodeJSON は本文を1つの JSON の値として読む。
 // 知らない項目と2つ目の値はエラーにする。
 func decodeJSON(
@@ -126,3 +136,5 @@ func decodeJSON(
 	}
 	return nil
 }
+
+// #endregion

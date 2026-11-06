@@ -1,0 +1,2 @@
+終了コード: 0
+{"level":"INFO","msg":"shutting down"}

@@ -1,0 +1,6 @@
+{"level":"INFO","msg":"event
+recorded","event":"booking.placed","aggregate_id":"01a1b331-05f9-776c
+-a149-db5d9fe70787","request_id":"01a1b331-05f9-7112-a4f3-4e54194b7aa
+2"}
+{"level":"INFO","msg":"request","method":"POST","path":"/bookings","s
+tatus":201,"request_id":"01a1b331-05f9-7112-a4f3-4e54194b7aa2"}

@@ -9,6 +9,41 @@ import (
 	"example.com/trainingbooking/internal/booking/domain"
 )
 
+// 処理中のリクエストは、終わるまで待って応答を返す。
+func TestShutdown_WaitsForRunningRequest(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			close(entered)
+			<-release
+			w.WriteHeader(http.StatusOK)
+		}))
+	defer ts.Close()
+	got := make(chan int, 1)
+	go func() {
+		resp, err := ts.Client().Get(ts.URL)
+		if err != nil {
+			got <- 0
+			return
+		}
+		defer func() { _ = resp.Body.Close() }()
+		got <- resp.StatusCode
+	}()
+	<-entered
+
+	done := make(chan error, 1)
+	go func() { done <- shutdown(ts.Config, 5*time.Second) }()
+	time.Sleep(50 * time.Millisecond)
+	close(release)
+	if err := <-done; err != nil {
+		t.Errorf("shutdown: %v", err)
+	}
+	if status := <-got; status != http.StatusOK {
+		t.Errorf("status = %d", status)
+	}
+}
+
 // 期限までに終わらないリクエストは中断する。
 func TestShutdown_CancelsRequestsAfterTimeout(t *testing.T) {
 	entered := make(chan struct{})

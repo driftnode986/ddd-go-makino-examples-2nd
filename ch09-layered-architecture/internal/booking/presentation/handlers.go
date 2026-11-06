@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"example.com/trainingbooking/internal/booking/application"
 	"example.com/trainingbooking/internal/ids"
@@ -20,9 +21,12 @@ const (
 type handlers struct {
 	place   placeBooking
 	cancel  cancelBooking
-	queries application.BookingQueries
+	queries memberBookings
 	logger  *slog.Logger
+	loc     *time.Location
 }
+
+// #region post-booking
 
 func (h *handlers) postBooking(
 	w http.ResponseWriter, r *http.Request,
@@ -42,6 +46,8 @@ func (h *handlers) postBooking(
 		Status: out.Status,
 	})
 }
+
+// #endregion
 
 func (h *handlers) postCancel(
 	w http.ResponseWriter, r *http.Request,
@@ -73,7 +79,7 @@ func (h *handlers) getBookings(
 		h.writeError(w, r, err)
 		return
 	}
-	h.writeJSON(w, r, http.StatusOK, toListResponse(views))
+	h.writeJSON(w, r, http.StatusOK, toListResponse(views, h.loc))
 }
 
 func (h *handlers) writeJSON(
@@ -106,6 +112,8 @@ func (h *handlers) writeInternal(
 	})
 }
 
+// #region write-error
+
 // writeError は Kind をステータスに変える。5xx の本文に原因を
 // 出さず、原因はログに記録する。
 func (h *handlers) writeError(
@@ -127,6 +135,10 @@ func (h *handlers) writeError(
 	})
 }
 
+// #endregion
+
+// #region status-of
+
 func statusOf(kind application.Kind) int {
 	switch kind {
 	case application.KindInvalid:
@@ -140,6 +152,10 @@ func statusOf(kind application.Kind) int {
 	}
 }
 
+// #endregion
+
+// #region level-of
+
 // levelOf は利用者の切断と期限切れの水準を下げる。
 // サーバーの障害と分けて見るためである。
 func levelOf(err error) slog.Level {
@@ -149,3 +165,5 @@ func levelOf(err error) slog.Level {
 	}
 	return slog.LevelError
 }
+
+// #endregion

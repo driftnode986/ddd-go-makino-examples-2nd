@@ -1,0 +1,5 @@
+Booking: {} (err = <nil>)
+State:
+{"ID":{},"MemberID":{},"LessonID":{},"Start":"2030-06-01T10:00:00+09:
+00","End":"2030-06-01T11:00:00+09:00","FeeYen":3000,"DiscountYen":0,"
+Status":"pending","Version":0,"Options":[]} (err = <nil>)
