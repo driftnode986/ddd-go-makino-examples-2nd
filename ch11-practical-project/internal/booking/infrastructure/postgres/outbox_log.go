@@ -5,6 +5,8 @@ import (
 	"log/slog"
 
 	"example.com/trainingbooking/internal/booking/domain"
+	"example.com/trainingbooking/internal/platform/txn"
+	"example.com/trainingbooking/internal/platform/txn/pgtx"
 )
 
 // LoggingOutbox はイベントをログに書くだけの OutboxWriter である。
@@ -19,12 +21,12 @@ func NewLoggingOutbox(logger *slog.Logger) *LoggingOutbox {
 }
 
 // Append はイベントをログに書く。ctx に Tx が無ければ
-// domain.ErrNoTransaction を返す。
+// txn.ErrNoTransaction を返す。
 func (o *LoggingOutbox) Append(
 	ctx context.Context, events ...domain.DomainEvent,
 ) error {
-	if _, ok := txFrom(ctx); !ok {
-		return domain.ErrNoTransaction
+	if _, ok := pgtx.From(ctx); !ok {
+		return txn.ErrNoTransaction
 	}
 	for _, e := range events {
 		o.logger.InfoContext(ctx, "event recorded",

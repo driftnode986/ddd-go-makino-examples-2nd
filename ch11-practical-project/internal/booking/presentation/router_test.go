@@ -18,6 +18,7 @@ import (
 	"example.com/trainingbooking/internal/booking/presentation"
 	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/logging"
+	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
 var (
@@ -537,7 +538,7 @@ func TestMiddleware_AccessLogHasRequestID(t *testing.T) {
 func TestRouter_WithUseCases(t *testing.T) {
 	repo := memory.NewBookingRepository()
 	outbox := memory.NewOutboxWriter()
-	tx := memory.NewTransactor()
+	tx := memtx.NewTransactor()
 	clock := fixedClock{now}
 	fee, err := domain.NewMoney(3000)
 	if err != nil {

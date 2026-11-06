@@ -13,6 +13,7 @@ import (
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres"
 	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/dbtest"
+	"example.com/trainingbooking/internal/platform/txn/pgtx"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -29,7 +30,7 @@ func TestBookingRepository_Contract(t *testing.T) {
 		) {
 			pool := newPool(t)
 			return postgres.NewBookingRepository(pool),
-				postgres.NewTransactor(pool)
+				pgtx.NewTransactor(pool)
 		})
 }
 
@@ -85,7 +86,7 @@ func TestExclusionConstraint_UUIDWithBtreeGist(t *testing.T) {
 func TestTransactor_RollbackUndoesAddAndSave(t *testing.T) {
 	pool := newPool(t)
 	repo := postgres.NewBookingRepository(pool)
-	tx := postgres.NewTransactor(pool)
+	tx := pgtx.NewTransactor(pool)
 	ctx := t.Context()
 	saved, added := newPair(t)
 	err := tx.Do(ctx, func(ctx context.Context) error {
@@ -132,7 +133,7 @@ func TestTransactor_RollbackUndoesAddAndSave(t *testing.T) {
 func TestTransactor_NestedJoinsOuter(t *testing.T) {
 	pool := newPool(t)
 	repo := postgres.NewBookingRepository(pool)
-	tx := postgres.NewTransactor(pool)
+	tx := pgtx.NewTransactor(pool)
 	ctx := t.Context()
 	inner, _ := newPair(t)
 
@@ -164,7 +165,7 @@ func TestTransactor_NestedJoinsOuter(t *testing.T) {
 func TestTransactor_OverlapAbortsOuter(t *testing.T) {
 	pool := newPool(t)
 	repo := postgres.NewBookingRepository(pool)
-	tx := postgres.NewTransactor(pool)
+	tx := pgtx.NewTransactor(pool)
 	ctx := t.Context()
 	first, _ := newPair(t)
 

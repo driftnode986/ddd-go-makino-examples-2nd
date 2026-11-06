@@ -1,23 +1,31 @@
-package memory
+// Package memtx は in-memory のテストダブルが使う Tx である。
+package memtx
 
 import "context"
 
-type txKey struct{}
+type key struct{}
 
-// tx は Do のあいだの書き込みと、その取り消し方を持つ。
-type tx struct {
+// Tx は Do のあいだの書き込みの取り消し方を持つ。
+type Tx struct {
 	undo []func()
 }
 
-func txFrom(ctx context.Context) (*tx, bool) {
-	cur, ok := ctx.Value(txKey{}).(*tx)
-	return cur, ok
+// OnRollback は Tx が戻るときに実行する関数を登録する。
+// 登録の逆順に実行する。
+func (t *Tx) OnRollback(fn func()) {
+	t.undo = append(t.undo, fn)
 }
 
-func (t *tx) rollback() {
+func (t *Tx) rollback() {
 	for i := len(t.undo) - 1; i >= 0; i-- {
 		t.undo[i]()
 	}
+}
+
+// From は ctx の Tx を返す。
+func From(ctx context.Context) (*Tx, bool) {
+	cur, ok := ctx.Value(key{}).(*Tx)
+	return cur, ok
 }
 
 // Transactor は PostgreSQL の Transactor のテストダブルである。
@@ -34,20 +42,20 @@ func NewTransactor() *Transactor { return &Transactor{} }
 func (t *Transactor) Do(
 	ctx context.Context, fn func(context.Context) error,
 ) error {
-	if _, ok := txFrom(ctx); ok {
+	if _, ok := From(ctx); ok {
 		return fn(ctx)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	cur := &tx{}
+	cur := &Tx{}
 	committed := false
 	defer func() {
 		if !committed {
 			cur.rollback()
 		}
 	}()
-	err := fn(context.WithValue(ctx, txKey{}, cur))
+	err := fn(context.WithValue(ctx, key{}, cur))
 	if err != nil {
 		return err
 	}

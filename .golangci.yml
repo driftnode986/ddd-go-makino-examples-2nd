@@ -115,6 +115,16 @@ linters:
               desc: domain から外側のレイヤーを import できません
             - pkg: github.com/jackc/pgx/
               desc: domain から pgx を import できません
+        # Tx の取り決めは契約テストと infrastructure が使います。
+        # domain は Tx を知りません。
+        domain-no-txn:
+          list-mode: lax
+          files:
+            - "**/internal/*/domain/**"
+            - "!**/internal/*/domain/repositorytest/**"
+          deny:
+            - pkg: example.com/trainingbooking/internal/platform/txn
+              desc: domain から Tx を import できません
         # application は実装を知りません。テストは実装を組み立てて使います。
         application-layer:
           list-mode: lax
@@ -146,6 +156,10 @@ linters:
               desc: application から presentation を import できません
             - pkg: example.com/trainingbooking/internal/identity/presentation/
               desc: application から presentation を import できません
+            - pkg: example.com/trainingbooking/internal/platform/txn/pgtx
+              desc: application から Tx の実装を import できません
+            - pkg: example.com/trainingbooking/internal/platform/txn/memtx
+              desc: application から Tx の実装を import できません
             - pkg: github.com/jackc/pgx/
               desc: application から pgx を import できません
   exclusions:

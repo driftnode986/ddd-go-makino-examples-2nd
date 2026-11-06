@@ -9,6 +9,8 @@ import (
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres/sqlcgen"
 	"example.com/trainingbooking/internal/ids"
+	"example.com/trainingbooking/internal/platform/txn"
+	"example.com/trainingbooking/internal/platform/txn/pgtx"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -136,7 +138,7 @@ func (r *BookingRepository) FindByID(
 func queriesFor(
 	ctx context.Context, pool *pgxpool.Pool,
 ) *sqlcgen.Queries {
-	if tx, ok := txFrom(ctx); ok {
+	if tx, ok := pgtx.From(ctx); ok {
 		return sqlcgen.New(tx)
 	}
 	return sqlcgen.New(pool)
@@ -154,9 +156,9 @@ func prepare(
 	if _, err := domain.ReconstructBooking(s); err != nil {
 		return domain.BookingState{}, nil, err
 	}
-	tx, ok := txFrom(ctx)
+	tx, ok := pgtx.From(ctx)
 	if !ok {
-		return domain.BookingState{}, nil, domain.ErrNoTransaction
+		return domain.BookingState{}, nil, txn.ErrNoTransaction
 	}
 	return s, sqlcgen.New(tx), nil
 }

@@ -18,6 +18,7 @@ import (
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres"
 	"example.com/trainingbooking/internal/booking/presentation"
 	"example.com/trainingbooking/internal/platform/logging"
+	"example.com/trainingbooking/internal/platform/txn/pgtx"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -78,7 +79,7 @@ func newRouter(
 		return nil, err
 	}
 	repo := postgres.NewBookingRepository(pool)
-	tx := postgres.NewTransactor(pool)
+	tx := pgtx.NewTransactor(pool)
 	outbox := postgres.NewLoggingOutbox(logger)
 	clock := systemClock{}
 	return presentation.NewRouter(presentation.Deps{

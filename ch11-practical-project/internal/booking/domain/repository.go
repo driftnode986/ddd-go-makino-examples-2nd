@@ -8,7 +8,7 @@ import (
 
 // BookingRepository は Booking 集約を保存し、読み出す。
 // Add と Save は ctx の Tx に参加する。自分では Tx を開かない。
-// ctx に Tx が無ければ ErrNoTransaction を返す。
+// ctx に Tx が無ければ実装はエラー（txn.ErrNoTransaction）を返す。
 type BookingRepository interface {
 	// Add は新しい予約を保存する。同じ ID があれば ErrDuplicate、
 	// 同じ会員の時間帯が重なれば ErrOverlap を返す。

@@ -13,6 +13,7 @@ import (
 
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/ids"
+	"example.com/trainingbooking/internal/platform/txn"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -644,7 +645,7 @@ func testAddWithoutTransaction(
 	t *testing.T, r domain.BookingRepository, _ Transactor,
 ) {
 	b := newBooking(t)
-	wantErr(t, r.Add(t.Context(), b), domain.ErrNoTransaction)
+	wantErr(t, r.Add(t.Context(), b), txn.ErrNoTransaction)
 	_, err := r.FindByID(t.Context(), b.ID())
 	wantErr(t, err, domain.ErrNotFound)
 }
@@ -659,7 +660,7 @@ func testSaveWithoutTransaction(
 		t.Fatalf("Confirm: %v", err)
 	}
 	err := r.Save(t.Context(), loaded)
-	wantErr(t, err, domain.ErrNoTransaction)
+	wantErr(t, err, txn.ErrNoTransaction)
 
 	// FindByID は Tx なしで読める。値は変わっていない
 	got := mustFind(t, r, b.ID())
@@ -677,7 +678,7 @@ func testOuterContextInDo(
 	err := tx.Do(outer, func(context.Context) error {
 		return r.Add(outer, b)
 	})
-	wantErr(t, err, domain.ErrNoTransaction)
+	wantErr(t, err, txn.ErrNoTransaction)
 	_, err = r.FindByID(outer, b.ID())
 	wantErr(t, err, domain.ErrNotFound)
 }

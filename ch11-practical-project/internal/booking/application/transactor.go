@@ -13,7 +13,7 @@ type Transactor interface {
 }
 
 // OutboxWriter はイベントを集約と同じ Tx で書く。
-// ctx に Tx が無ければ domain.ErrNoTransaction を返す。
+// ctx に Tx が無ければ実装はエラー（txn.ErrNoTransaction）を返す。
 type OutboxWriter interface {
 	Append(ctx context.Context, events ...domain.DomainEvent) error
 }

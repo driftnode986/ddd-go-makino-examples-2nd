@@ -11,6 +11,7 @@ import (
 	"example.com/trainingbooking/internal/booking/application"
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/ids"
+	"example.com/trainingbooking/internal/platform/txn"
 )
 
 func newPlace(
@@ -169,7 +170,7 @@ func TestPlaceBooking_RepositoryFailureKeepsCause(t *testing.T) {
 func TestPlaceBooking_NoTransactionIsKindInternal(t *testing.T) {
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(
-		failingRepository{d.repo, domain.ErrNoTransaction},
+		failingRepository{d.repo, txn.ErrNoTransaction},
 		d.outbox, d.tx, fixedClock{now}, terms(t))
 	_, err := place.Execute(t.Context(), placeInput())
 	wantKind(t, err, application.KindInternal)

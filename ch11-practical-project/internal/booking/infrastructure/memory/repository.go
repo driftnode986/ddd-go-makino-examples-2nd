@@ -9,6 +9,8 @@ import (
 
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/ids"
+	"example.com/trainingbooking/internal/platform/txn"
+	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
 // BookingRepository は集約の中身をコピーで保持する。
@@ -42,7 +44,7 @@ func (r *BookingRepository) Add(
 		return err
 	}
 	r.states[state.ID] = state
-	cur.undo = append(cur.undo, func() {
+	cur.OnRollback(func() {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		delete(r.states, state.ID)
@@ -73,7 +75,7 @@ func (r *BookingRepository) Save(
 	}
 	state.Version++
 	r.states[state.ID] = state
-	cur.undo = append(cur.undo, func() {
+	cur.OnRollback(func() {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		r.states[state.ID] = stored
@@ -101,7 +103,7 @@ func (r *BookingRepository) FindByID(
 // 中身のコピーと Tx を返す。
 func prepare(
 	ctx context.Context, b *domain.Booking,
-) (domain.BookingState, *tx, error) {
+) (domain.BookingState, *memtx.Tx, error) {
 	if err := ctx.Err(); err != nil {
 		return domain.BookingState{}, nil, err
 	}
@@ -109,9 +111,9 @@ func prepare(
 	if _, err := domain.ReconstructBooking(state); err != nil {
 		return domain.BookingState{}, nil, err
 	}
-	cur, ok := txFrom(ctx)
+	cur, ok := memtx.From(ctx)
 	if !ok {
-		return domain.BookingState{}, nil, domain.ErrNoTransaction
+		return domain.BookingState{}, nil, txn.ErrNoTransaction
 	}
 	return state, cur, nil
 }

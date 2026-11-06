@@ -12,6 +12,8 @@ import (
 
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres"
+	"example.com/trainingbooking/internal/platform/txn"
+	"example.com/trainingbooking/internal/platform/txn/pgtx"
 )
 
 func TestLoggingOutbox_RequiresTransaction(t *testing.T) {
@@ -21,14 +23,14 @@ func TestLoggingOutbox_RequiresTransaction(t *testing.T) {
 	event := domain.BookingPlaced{}
 
 	err := outbox.Append(t.Context(), event)
-	if !errors.Is(err, domain.ErrNoTransaction) {
+	if !errors.Is(err, txn.ErrNoTransaction) {
 		t.Fatalf("err = %v", err)
 	}
 	if buf.Len() != 0 {
 		t.Errorf("記録された: %s", buf.String())
 	}
 
-	tx := postgres.NewTransactor(newPool(t))
+	tx := pgtx.NewTransactor(newPool(t))
 	err = tx.Do(t.Context(), func(ctx context.Context) error {
 		return outbox.Append(ctx, event)
 	})

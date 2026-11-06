@@ -6,6 +6,8 @@ import (
 	"sync"
 
 	"example.com/trainingbooking/internal/booking/domain"
+	"example.com/trainingbooking/internal/platform/txn"
+	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
 // OutboxWriter は OutboxWriter のテストダブルである。
@@ -25,15 +27,15 @@ func (o *OutboxWriter) Append(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	cur, ok := txFrom(ctx)
+	cur, ok := memtx.From(ctx)
 	if !ok {
-		return domain.ErrNoTransaction
+		return txn.ErrNoTransaction
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	mark := len(o.events)
 	o.events = append(o.events, events...)
-	cur.undo = append(cur.undo, func() {
+	cur.OnRollback(func() {
 		o.mu.Lock()
 		defer o.mu.Unlock()
 		o.events = o.events[:mark]

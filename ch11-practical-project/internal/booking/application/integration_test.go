@@ -13,6 +13,7 @@ import (
 	"example.com/trainingbooking/internal/booking/infrastructure/postgres"
 	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/dbtest"
+	"example.com/trainingbooking/internal/platform/txn/pgtx"
 )
 
 func TestBookingQueries_Postgres(t *testing.T) {
@@ -20,7 +21,7 @@ func TestBookingQueries_Postgres(t *testing.T) {
 		pool := dbtest.New(t, postgres.Migrations)
 		return querytest.Fixture{
 			Repo:    postgres.NewBookingRepository(pool),
-			Tx:      postgres.NewTransactor(pool),
+			Tx:      pgtx.NewTransactor(pool),
 			Queries: postgres.NewBookingQueries(pool),
 		}
 	})
@@ -30,7 +31,7 @@ func TestBookingQueries_Postgres(t *testing.T) {
 func TestPlaceBooking_RollsBackWhenOutboxFails(t *testing.T) {
 	pool := dbtest.New(t, postgres.Migrations)
 	repo := postgres.NewBookingRepository(pool)
-	tx := postgres.NewTransactor(pool)
+	tx := pgtx.NewTransactor(pool)
 	boom := errors.New("outbox")
 	in := placeInput()
 
@@ -62,7 +63,7 @@ func TestPlaceBooking_ConcurrentOverlapOnPostgres(t *testing.T) {
 	place := application.NewPlaceBooking(
 		postgres.NewBookingRepository(pool),
 		discardOutbox{},
-		postgres.NewTransactor(pool),
+		pgtx.NewTransactor(pool),
 		fixedClock{now}, terms(t))
 	in := placeInput()
 

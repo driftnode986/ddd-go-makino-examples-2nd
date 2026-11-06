@@ -5,6 +5,7 @@ import (
 
 	"example.com/trainingbooking/internal/booking/application/querytest"
 	"example.com/trainingbooking/internal/booking/infrastructure/memory"
+	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
 func TestBookingQueries_Memory(t *testing.T) {
@@ -12,7 +13,7 @@ func TestBookingQueries_Memory(t *testing.T) {
 		repo := memory.NewBookingRepository()
 		return querytest.Fixture{
 			Repo:    repo,
-			Tx:      memory.NewTransactor(),
+			Tx:      memtx.NewTransactor(),
 			Queries: memory.NewBookingQueries(repo),
 		}
 	})

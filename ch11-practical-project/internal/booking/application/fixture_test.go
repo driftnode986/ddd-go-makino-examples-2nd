@@ -10,6 +10,7 @@ import (
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/booking/infrastructure/memory"
 	"example.com/trainingbooking/internal/ids"
+	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
 var (
@@ -52,14 +53,14 @@ func placeInput() application.PlaceBookingInput {
 type memoryDeps struct {
 	repo   *memory.BookingRepository
 	outbox *memory.OutboxWriter
-	tx     *memory.Transactor
+	tx     *memtx.Transactor
 }
 
 func newMemoryDeps() memoryDeps {
 	return memoryDeps{
 		repo:   memory.NewBookingRepository(),
 		outbox: memory.NewOutboxWriter(),
-		tx:     memory.NewTransactor(),
+		tx:     memtx.NewTransactor(),
 	}
 }
 
