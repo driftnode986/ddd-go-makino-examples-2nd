@@ -38,11 +38,17 @@ func NewMemberRepository(pool *pgxpool.Pool) *MemberRepository {
 func (r *MemberRepository) Add(
 	ctx context.Context, m *domain.Member,
 ) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s := m.State()
+	if _, err := domain.ReconstructMember(s); err != nil {
+		return err
+	}
 	tx, ok := pgtx.From(ctx)
 	if !ok {
 		return txn.ErrNoTransaction
 	}
-	s := m.State()
 	err := sqlcgen.New(tx).InsertMember(ctx,
 		sqlcgen.InsertMemberParams{
 			ID:    s.ID.String(),
@@ -60,7 +66,7 @@ func (r *MemberRepository) Add(
 func (r *MemberRepository) FindByID(
 	ctx context.Context, id ids.MemberID,
 ) (*domain.Member, error) {
-	row, err := sqlcgen.New(r.pool).FindMember(ctx, id.String())
+	row, err := queriesFor(ctx, r.pool).FindMember(ctx, id.String())
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("%w: %s", domain.ErrNotFound, id)
 	}
@@ -72,4 +78,14 @@ func (r *MemberRepository) FindByID(
 		Email: row.Email,
 		Name:  row.Name,
 	})
+}
+
+// queriesFor は ctx に Tx があればそれを使う。無ければプールから読む。
+func queriesFor(
+	ctx context.Context, pool *pgxpool.Pool,
+) *sqlcgen.Queries {
+	if tx, ok := pgtx.From(ctx); ok {
+		return sqlcgen.New(tx)
+	}
+	return sqlcgen.New(pool)
 }

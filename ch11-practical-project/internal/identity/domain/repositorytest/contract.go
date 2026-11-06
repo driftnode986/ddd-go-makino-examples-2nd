@@ -45,6 +45,8 @@ func Run(t *testing.T, fixture func(t *testing.T) Fixture) {
 		{"無い会員の FindByID は ErrNotFound", testFindMissing},
 		{"Tx の外の書き込みは ErrNoTransaction", testNoTransaction},
 		{"Tx の失敗で書き込みが戻る", testRollback},
+		{"Tx の中で追加した値を読める", testReadInTransaction},
+		{"ゼロ値の集約は保存しない", testZeroMember},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) { c.run(t, fixture(t)) })
@@ -131,5 +133,26 @@ func testRollback(t *testing.T, f Fixture) {
 	_, err = f.Repo.FindByID(t.Context(), m.ID())
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("Add が残った: %v", err)
+	}
+}
+
+func testReadInTransaction(t *testing.T, f Fixture) {
+	m := newMember(t, "hanako@example.com")
+	err := f.Tx.Do(t.Context(), func(ctx context.Context) error {
+		if err := f.Repo.Add(ctx, m); err != nil {
+			return err
+		}
+		_, err := f.Repo.FindByID(ctx, m.ID())
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+}
+
+func testZeroMember(t *testing.T, f Fixture) {
+	err := f.add(t, &domain.Member{})
+	if !errors.Is(err, domain.ErrInvalidMember) {
+		t.Fatalf("err = %v", err)
 	}
 }

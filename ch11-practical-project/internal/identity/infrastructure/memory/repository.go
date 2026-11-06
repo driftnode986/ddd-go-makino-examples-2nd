@@ -33,11 +33,14 @@ func (r *MemberRepository) Add(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	state := m.State()
+	if _, err := domain.ReconstructMember(state); err != nil {
+		return err
+	}
 	cur, ok := memtx.From(ctx)
 	if !ok {
 		return txn.ErrNoTransaction
 	}
-	state := m.State()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, other := range r.states {
