@@ -40,7 +40,7 @@ func NewTimeSlot(
 	if start.IsZero() || loc == nil {
 		return TimeSlot{}, ErrInvalidTimeSlot
 	}
-	if d <= 0 {
+	if d <= 0 || d%time.Minute != 0 {
 		return TimeSlot{}, fmt.Errorf(
 			"%w: %s", ErrInvalidDuration, d)
 	}

@@ -169,6 +169,15 @@ func TestReconstruct_RejectsBrokenState(t *testing.T) {
 	}
 }
 
+func TestReconstruct_RejectsSubMicrosecond(t *testing.T) {
+	s := validState(t)
+	s.End = s.End.Add(time.Nanosecond)
+	_, err := domain.ReconstructBooking(s)
+	if !errors.Is(err, domain.ErrInvalidBooking) {
+		t.Fatalf("err = %v, want ErrInvalidBooking", err)
+	}
+}
+
 func TestReconstruct_RejectsZeroValueBooking(t *testing.T) {
 	var b domain.Booking
 	_, err := domain.ReconstructBooking(b.State())

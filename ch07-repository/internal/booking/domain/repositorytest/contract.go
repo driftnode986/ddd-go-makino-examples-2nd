@@ -84,6 +84,7 @@ func Run(
 		{"時間帯の重複は ErrOverlap", testOverlap},
 		{"重複の判定は会員ごと", testOverlapOtherMember},
 		{"接する時間帯は重複しない", testAdjacentSlots},
+		{"端数のある終了も同じに判定する", testFractionalEnd},
 		{"終わった予約は時間帯を空ける", testEndedFreesSlot},
 		{"同時の重複は片方だけ成功する", testConcurrentOverlap},
 		{"確定と重なる予約が同時でも重複になる", testConcurrentConfirm},
@@ -549,6 +550,26 @@ func testAdjacentSlots(t *testing.T, r domain.BookingRepository) {
 	mustAdd(t, r, bookingAt(t, member, 1, 9))
 	mustAdd(t, r, bookingAt(t, member, 1, 11))
 	mustAdd(t, r, bookingAt(t, member, 2, 10))
+}
+
+// 終了が1マイクロ秒だけ次の時間帯に入る予約は往復でき、重なる。
+// 1マイクロ秒より細かい値は NewTimeSlot と再構築が拒否するので、
+// 実装のあいだで丸めの差は出ない。
+func testFractionalEnd(t *testing.T, r domain.BookingRepository) {
+	member := ids.NewID[ids.MemberMarker]()
+	st := bookingAt(t, member, 1, 10).State()
+	st.End = st.End.Add(time.Microsecond)
+	b, err := domain.ReconstructBooking(st)
+	if err != nil {
+		t.Fatalf("ReconstructBooking: %v", err)
+	}
+	mustAdd(t, r, b)
+	got := mustFind(t, r, b.ID()).State()
+	if diff := cmp.Diff(st, got); diff != "" {
+		t.Fatalf("差分 (-want +got):\n%s", diff)
+	}
+	err = r.Add(t.Context(), bookingAt(t, member, 1, 11))
+	wantErr(t, err, domain.ErrOverlap)
 }
 
 func testEndedFreesSlot(t *testing.T, r domain.BookingRepository) {

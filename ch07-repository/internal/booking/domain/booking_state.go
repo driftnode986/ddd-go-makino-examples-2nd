@@ -81,6 +81,11 @@ func rebuild(s BookingState) (*Booking, error) {
 		!s.Start.Add(d).Equal(s.End) {
 		return nil, fmt.Errorf("slot %s to %s", s.Start, s.End)
 	}
+	// DB の時刻は1マイクロ秒まで。それより細かい値は保存できない。
+	if s.Start.Nanosecond()%1000 != 0 ||
+		s.End.Nanosecond()%1000 != 0 {
+		return nil, fmt.Errorf("slot %s to %s", s.Start, s.End)
+	}
 	if s.Version < 0 {
 		return nil, fmt.Errorf("version %d", s.Version)
 	}

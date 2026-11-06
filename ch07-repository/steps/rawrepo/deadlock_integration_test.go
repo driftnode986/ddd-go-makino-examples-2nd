@@ -105,15 +105,11 @@ func TestConcurrentAddsWithAndWithoutLock(t *testing.T) {
 	tx := pgtx.NewTransactor(pool)
 	const rounds = 300
 
-	begin := time.Now()
 	got := tally(t, tx, rawrepo.Repo{Lock: false}, rounds)
-	t.Logf("ロックなし %d 回: %v (%s)", rounds, got,
-		time.Since(begin).Round(100*time.Millisecond))
+	t.Logf("ロックなし %d 回: %v", rounds, got)
 
-	begin = time.Now()
 	got = tally(t, tx, rawrepo.Repo{Lock: true}, rounds)
-	t.Logf("ロックあり %d 回: %v (%s)", rounds, got,
-		time.Since(begin).Round(100*time.Millisecond))
+	t.Logf("ロックあり %d 回: %v", rounds, got)
 	if got["40P01"] != 0 {
 		t.Errorf("ロックありでデッドロック: %d 件", got["40P01"])
 	}

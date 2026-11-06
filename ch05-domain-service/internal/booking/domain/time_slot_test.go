@@ -90,6 +90,8 @@ func TestTimeSlot_InvalidInput(t *testing.T) {
 		{"長さ0は不可", at(1, 10), 0, domain.ErrInvalidDuration},
 		{"負の長さは不可", at(1, 10), -time.Hour,
 			domain.ErrInvalidDuration},
+		{"分の途中で終わる長さは不可", at(1, 10),
+			time.Hour + time.Nanosecond, domain.ErrInvalidDuration},
 		{"開始の分が0でない", at(1, 10).Add(time.Minute),
 			time.Hour, domain.ErrNotOnTheHour},
 		{"開始の秒が0でない", at(1, 10).Add(time.Second),

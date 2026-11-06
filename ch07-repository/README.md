@@ -17,7 +17,7 @@
 
 ## 動かし方
 
-統合テストは Docker で PostgreSQL を起動します。Docker を動かしてから実行します。
+統合テストは testcontainers-go が PostgreSQL のコンテナを起動して止めます。Docker を動かしてから実行します。`make up` は要りません。
 
 ```bash
 cd ch07-repository
@@ -32,6 +32,8 @@ make up
 docker compose exec postgres psql -U dev -d trainingbooking -c '\dt'
 make down
 ```
+
+`make down` は `docker compose down -v` なので、コンテナと一緒にボリュームも消え、保存したデータは残りません。残したいときは `docker compose stop` を使います。
 
 PostgreSQL は `127.0.0.1:5432` で待ち受けます。別の章で起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` を指定します。
 
