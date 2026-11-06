@@ -37,11 +37,6 @@ func NewEmail(s string) (Email, error) {
 // String はアドレスの文字列を返す。
 func (e Email) String() string { return e.value }
 
-// Domain はドメイン部を返す。
-func (e Email) Domain() string {
-	return e.value[strings.LastIndex(e.value, "@")+1:]
-}
-
 // Equal は同じアドレスのとき true を返す。
 func (e Email) Equal(other Email) bool {
 	return e.value == other.value

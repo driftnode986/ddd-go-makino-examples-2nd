@@ -15,9 +15,6 @@ func TestEmail_Valid(t *testing.T) {
 	if e.String() != "taro@example.com" {
 		t.Errorf("String = %q", e.String())
 	}
-	if e.Domain() != "example.com" {
-		t.Errorf("Domain = %q", e.Domain())
-	}
 }
 
 func TestEmail_RejectsDisplayName(t *testing.T) {
