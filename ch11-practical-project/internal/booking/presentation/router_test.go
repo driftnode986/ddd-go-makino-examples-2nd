@@ -627,21 +627,21 @@ func TestRouter_WithUseCases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMoney: %v", err)
 	}
+	terms := application.LessonTerms{
+		Start:    time.Date(2030, time.June, 1, 10, 0, 0, 0, jst),
+		Duration: time.Hour,
+		Fee:      fee,
+		Location: jst,
+		Options: []application.OfferedOption{
+			{Name: "シューズ", UnitPrice: price},
+		},
+	}
 	var buf bytes.Buffer
 	router := presentation.NewRouter(presentation.Deps{
 		Place: application.NewPlaceBooking(
 			repo, memory.NewBookingQueries(repo), outbox, tx, clock,
 			fixed.NewCoupons(),
-			fixedLessons{application.LessonTerms{
-				Start: time.Date(
-					2030, time.June, 1, 10, 0, 0, 0, jst),
-				Duration: time.Hour,
-				Fee:      fee,
-				Location: jst,
-				Options: []application.OfferedOption{
-					{Name: "シューズ", UnitPrice: price},
-				},
-			}},
+			fixedLessons{terms},
 			everyMember{}),
 		Cancel: application.NewCancelBooking(
 			repo, outbox, tx, clock),

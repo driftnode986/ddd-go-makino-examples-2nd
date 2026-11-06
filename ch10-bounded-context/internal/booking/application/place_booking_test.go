@@ -107,12 +107,12 @@ func TestPlaceBooking_InvalidLessonTermsIsKindInvalid(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			lesson := lessons(t)
-			c.change(&lesson.terms)
+			lesson := terms(t)
+			c.change(&lesson)
 			d := newMemoryDeps()
 			place := application.NewPlaceBooking(
 				d.repo, d.queries, d.outbox, d.tx, fixedClock{now},
-				d.coupons, lesson)
+				d.coupons, stubLessons{terms: lesson})
 			_, err := place.Execute(t.Context(), placeInput())
 			wantKind(t, err, application.KindInvalid)
 			if !errors.Is(err, c.cause) {
@@ -153,23 +153,23 @@ func TestPlaceBooking_CatalogFailureIsKindInternal(t *testing.T) {
 // 営業時間の判定に使うのは LessonTerms の Location である。
 func TestPlaceBooking_UsesLocationFromTerms(t *testing.T) {
 	d := newMemoryDeps()
-	lesson := lessons(t)
+	lesson := terms(t)
 	// UTC の10時は JST の19時で営業時間内、
 	// UTC の13時は JST の22時で営業時間外になる。
-	lesson.terms.Start = time.Date(
+	lesson.Start = time.Date(
 		2030, time.June, 1, 10, 0, 0, 0, time.UTC)
 	place := application.NewPlaceBooking(
 		d.repo, d.queries, d.outbox, d.tx, fixedClock{now},
-		d.coupons, lesson)
+		d.coupons, stubLessons{terms: lesson})
 	_, err := place.Execute(t.Context(), placeInput())
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	lesson.terms.Start = time.Date(
+	lesson.Start = time.Date(
 		2030, time.June, 1, 13, 0, 0, 0, time.UTC)
 	place = application.NewPlaceBooking(
 		d.repo, d.queries, d.outbox, d.tx, fixedClock{now},
-		d.coupons, lesson)
+		d.coupons, stubLessons{terms: lesson})
 	_, err = place.Execute(t.Context(), placeInput())
 	if !errors.Is(err, domain.ErrOutOfBusinessHours) {
 		t.Fatalf("err = %v", err)
@@ -239,14 +239,14 @@ func TestPlaceBooking_InvalidOptionsAreKindInvalid(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			lesson := lessons(t)
+			lesson := terms(t)
 			if c.offered != nil {
-				lesson.terms.Options = c.offered
+				lesson.Options = c.offered
 			}
 			d := newMemoryDeps()
 			place := application.NewPlaceBooking(
 				d.repo, d.queries, d.outbox, d.tx, fixedClock{now},
-				d.coupons, lesson)
+				d.coupons, stubLessons{terms: lesson})
 			in := placeInput()
 			in.Options = c.options
 			_, err := place.Execute(t.Context(), in)
