@@ -117,7 +117,7 @@ func updateBooking(
 func (r *BookingRepository) FindByID(
 	ctx context.Context, id ids.BookingID,
 ) (*domain.Booking, error) {
-	rows, err := r.queries(ctx).FindBookingWithOptions(
+	rows, err := queriesFor(ctx, r.pool).FindBookingWithOptions(
 		ctx, id.String())
 	if err != nil {
 		return nil, err
@@ -132,14 +132,14 @@ func (r *BookingRepository) FindByID(
 	return domain.ReconstructBooking(s)
 }
 
-// queries は ctx に Tx があれば Tx で、無ければプールで実行する。
-func (r *BookingRepository) queries(
-	ctx context.Context,
+// queriesFor は ctx に Tx があれば Tx で、無ければプールで実行する。
+func queriesFor(
+	ctx context.Context, pool *pgxpool.Pool,
 ) *sqlcgen.Queries {
 	if tx, ok := txFrom(ctx); ok {
 		return sqlcgen.New(tx)
 	}
-	return sqlcgen.New(r.pool)
+	return sqlcgen.New(pool)
 }
 
 // prepare は保存できる集約かと ctx の Tx を確かめて、

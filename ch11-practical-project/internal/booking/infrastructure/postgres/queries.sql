@@ -36,3 +36,16 @@ ORDER BY o.position;
 -- 同じ会員の書き込みを Tx の終わりまで順番に並べる。
 -- name: LockMember :exec
 SELECT pg_advisory_xact_lock(hashtextextended(@member_id::text, 0));
+
+-- 一覧は集約を組み立てず、合計を SQL で求める。
+-- name: ListBookingsByMember :many
+SELECT
+    b.id, b.lesson_id, b.starts_at, b.ends_at, b.status,
+    (b.fee_yen - b.discount_yen
+        + COALESCE(SUM(o.unit_price_yen * o.quantity), 0))::bigint
+        AS total_yen
+FROM bookings b
+LEFT JOIN booking_options o ON o.booking_id = b.id
+WHERE b.member_id = $1
+GROUP BY b.id
+ORDER BY b.starts_at, b.id;
