@@ -1,7 +1,10 @@
 // Package memtx は in-memory のテストダブルが使う Tx である。
 package memtx
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 type key struct{}
 
@@ -29,16 +32,20 @@ func From(ctx context.Context) (*Tx, bool) {
 }
 
 // Transactor は PostgreSQL の Transactor のテストダブルである。
-// 失敗したら書き込みを戻す。テストダブルなので隔離はしない。
-// コミット前の値は他の Do と Tx の外からも見える。
-type Transactor struct{}
+// 失敗したら書き込みを戻す。最外側の Do を1つずつ実行するので、
+// 戻す処理が別の Do の結果を消さない。同時実行の検証は PostgreSQL
+// で行う。コミット前の値は Tx の外からは見える。
+type Transactor struct {
+	mu sync.Mutex
+}
 
 // NewTransactor は Transactor を返す。
 func NewTransactor() *Transactor { return &Transactor{} }
 
 // Do は fn を1つの Tx として実行する。fn がエラーを返すか panic
 // すれば戻す。fn は渡された ctx を使う。
-// 入れ子の Do は外側の Tx に参加する。
+// 入れ子の Do は外側の Tx に参加する。fn の中で外側の ctx を渡して
+// Do を呼ぶと、ロックを待ち続けて止まる。
 func (t *Transactor) Do(
 	ctx context.Context, fn func(context.Context) error,
 ) error {
@@ -48,6 +55,8 @@ func (t *Transactor) Do(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	cur := &Tx{}
 	committed := false
 	defer func() {
