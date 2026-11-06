@@ -1,10 +1,10 @@
 #!/bin/bash
-# インクルード方式（repo が原本）のサンプル repo 用 pre-commit。repo 直下 .githooks/pre-commit として置き
+# コミットの前に、コードのリージョンの対応と秘密情報を検査します。
+# 有効にするには次を実行します。
 #   git config core.hooksPath .githooks
-# で有効化する。repo を直すのは正しい手順。ここでは本へのインクルードが壊れないことだけを見る:
+# 検査するものは次のとおりです。
 #   - #region / #endregion の対応（閉じ忘れ・名前違い・同名の重複）
 #   - 秘密情報（gitleaks があれば）
-# 本への反映は books-monorepo 側で pin を上げて companion.py report（docs/rules/companion-repo.md）
 python3 - <<'PY' || exit 1
 import re, subprocess, sys
 RE = re.compile(r"^\s*(?://|#|--|<!--)\s*#(end)?region\b[ \t]*([\w.-]*)[ \t]*(?:-->)?\s*$")
