@@ -65,3 +65,13 @@ func TestID_TypesDoNotMix(t *testing.T) {
 		t.Fatal("3つの ID は別の型である")
 	}
 }
+
+// 同じ構造の型どうしは型変換が通る。止められるのは代入の取り違えで、
+// 明示の変換は止められない。
+func TestID_ConversionIsNotBlocked(t *testing.T) {
+	member := ids.NewID[ids.MemberMarker]()
+	booking := ids.BookingID(member)
+	if booking.String() != member.String() {
+		t.Fatalf("got %s, want %s", booking, member)
+	}
+}
