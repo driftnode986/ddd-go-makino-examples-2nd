@@ -420,16 +420,26 @@ func TestDiscount_NeverExceedsSubtotal(t *testing.T) {
 	}
 }
 
-func TestApplyDiscount_Status(t *testing.T) {
+// #region discount-status
+
+func TestApplyDiscount_OnlyPending(t *testing.T) {
 	for _, s := range []domain.Status{
-		domain.StatusRejected, domain.StatusCancelled,
+		domain.StatusConfirmed,
+		domain.StatusRejected,
+		domain.StatusCancelled,
 	} {
-		err := inStatus(t, s).ApplyDiscount(yen(t, 100))
+		b := inStatus(t, s)
+		err := b.ApplyDiscount(yen(t, 100))
 		if !errors.Is(err, domain.ErrInvalidTransition) {
 			t.Errorf("%s: err = %v", s, err)
 		}
+		if !b.Total().Equal(yen(t, 3000)) {
+			t.Errorf("%s: Total = %d", s, b.Total().Amount())
+		}
 	}
 }
+
+// #endregion
 
 func TestOptions_ReturnsCopy(t *testing.T) {
 	b := newBooking(t)

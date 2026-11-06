@@ -196,9 +196,10 @@ func (b *Booking) AddOption(o BookingOption, clk Clock) error {
 
 // #region apply-discount
 
-// ApplyDiscount は割引額を設定する。前の割引は置き換える。
+// ApplyDiscount は pending の予約に割引額を設定する。
+// 前の割引は置き換える。
 func (b *Booking) ApplyDiscount(discount Money) error {
-	if !b.status.active() {
+	if b.status != StatusPending {
 		return b.invalidTransition("apply discount")
 	}
 	if discount.yen > b.subtotal.yen {
@@ -266,13 +267,8 @@ func (b *Booking) invalidTransition(op string) error {
 
 // #endregion
 
-// active は割引を変更できる状態のとき true を返す。
-func (s Status) active() bool {
-	return s == StatusPending || s == StatusConfirmed
-}
-
 // valid は定義済みの状態のとき true を返す。
 func (s Status) valid() bool {
-	return s.active() || s == StatusRejected ||
-		s == StatusCancelled
+	return s == StatusPending || s == StatusConfirmed ||
+		s == StatusRejected || s == StatusCancelled
 }
