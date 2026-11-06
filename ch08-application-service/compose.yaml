@@ -1,0 +1,26 @@
+# 開発用の PostgreSQL です。パスワードは手元の検証専用です。
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: trainingbooking
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      # データベースを初めて作るときにスキーマを流す
+      - type: bind
+        source: "./internal/booking/infrastructure/postgres/\
+          migrations/0001_create_bookings.sql"
+        target: /docker-entrypoint-initdb.d/0001_create_bookings.sql
+        read_only: true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev -d trainingbooking"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
