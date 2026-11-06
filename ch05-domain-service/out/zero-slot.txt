@@ -1,0 +1,2 @@
+Overlaps: false
+DetectOverlap: invalid time slot

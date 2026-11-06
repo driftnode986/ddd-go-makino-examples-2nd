@@ -1,0 +1,4 @@
+first:  confirmed
+second: confirmed
+same member: true
+same slot:   true

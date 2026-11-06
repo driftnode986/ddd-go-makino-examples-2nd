@@ -67,12 +67,16 @@ func (s TimeSlot) Start() time.Time { return s.start }
 // End は終了時刻を返す。
 func (s TimeSlot) End() time.Time { return s.start.Add(s.duration) }
 
+// #region overlaps
+
 // Overlaps は時間帯が重なるとき true を返す。
 // 半開区間として扱うので、接するだけなら重ならない。
 func (s TimeSlot) Overlaps(other TimeSlot) bool {
 	return s.Start().Before(other.End()) &&
 		other.Start().Before(s.End())
 }
+
+// #endregion
 
 // #region slot-equal
 

@@ -1,0 +1,2 @@
+member A: <nil>
+member B: ErrOverlap=true

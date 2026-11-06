@@ -4,7 +4,7 @@
 
 ## できるようになったこと
 
-- `NewCoupon` で1〜100パーセントの割引券を作れます
+- `NewCoupon` で1〜100パーセントの割引券を作れます。`IsZero` と `Equal` を持ちます
 - `CalculateDiscount` で割引額を計算できます。端数は切り捨てます
 - ゼロ値の `Coupon` と、計算のあふれをエラーにできます
 - `DetectOverlap` で時間帯が既存の時間帯と重なるかを判定できます。重なれば `ErrOverlap` を返します
@@ -13,6 +13,8 @@
 
 - 追加: `internal/booking/domain/` の `discount.go`・`discount_test.go`・`overlap.go`・`overlap_test.go`
 - 変更: `internal/booking/domain/errors.go` に `ErrInvalidCoupon` と `ErrOverlap` を追加
+- `steps/` 本文で失敗を動かすためのコード（この章だけにあります）
+- `out/` 本に載せた実行結果。`bash out/regen.sh` で作り直せます
 
 ## 動かし方
 

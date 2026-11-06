@@ -18,17 +18,20 @@ func coupon(t *testing.T, percent int) domain.Coupon {
 }
 
 func TestCalculateDiscount_TruncatesFraction(t *testing.T) {
+	// #region truncates
 	cases := []struct {
 		price   int64
 		percent int
 		want    int64
 	}{
 		{1000, 10, 100},
+		{3000, 29, 870},
 		{999, 10, 99}, // 99.9円は切り捨てて99円
 		{1, 50, 0},    // 0.5円は切り捨てて0円
 		{3000, 100, 3000},
 		{0, 10, 0},
 	}
+	// #endregion
 	for _, c := range cases {
 		got, err := domain.CalculateDiscount(
 			yen(t, c.price), coupon(t, c.percent))
@@ -69,7 +72,16 @@ func TestNewCoupon_Range(t *testing.T) {
 	if !zero.IsZero() {
 		t.Error("var で宣言した Coupon は IsZero が true")
 	}
-	if coupon(t, 1).IsZero() || coupon(t, 100).Percent() != 100 {
-		t.Error("有効な Coupon の値が違う")
+	if coupon(t, 1).IsZero() || coupon(t, 100).IsZero() {
+		t.Error("有効な Coupon の IsZero が true")
+	}
+}
+
+func TestCoupon_Equal(t *testing.T) {
+	if !coupon(t, 10).Equal(coupon(t, 10)) {
+		t.Error("同じ割引率なら Equal は true")
+	}
+	if coupon(t, 10).Equal(coupon(t, 20)) {
+		t.Error("割引率が違えば Equal は false")
 	}
 }

@@ -1,0 +1,2 @@
+NewCoupon: err = <nil>
+fee = 3000, discount = 3000, err = <nil>

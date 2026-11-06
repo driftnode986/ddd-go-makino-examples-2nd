@@ -2,6 +2,8 @@ package domain
 
 import "fmt"
 
+// #region coupon
+
 // Coupon は1〜100パーセントの割引券である。
 type Coupon struct {
 	percent int
@@ -16,11 +18,17 @@ func NewCoupon(percent int) (Coupon, error) {
 	return Coupon{percent: percent}, nil
 }
 
-// Percent は割引率を返す。
-func (c Coupon) Percent() int { return c.percent }
+// #endregion
 
 // IsZero は NewCoupon を通していないとき true を返す。
 func (c Coupon) IsZero() bool { return c.percent == 0 }
+
+// Equal は割引率が同じとき true を返す。
+func (c Coupon) Equal(other Coupon) bool {
+	return c.percent == other.percent
+}
+
+// #region calculate-discount
 
 // CalculateDiscount は割引額を計算する。端数は切り捨てる。
 func CalculateDiscount(price Money, c Coupon) (Money, error) {
@@ -33,3 +41,5 @@ func CalculateDiscount(price Money, c Coupon) (Money, error) {
 	}
 	return Money{yen: scaled.yen / 100}, nil
 }
+
+// #endregion

@@ -13,6 +13,7 @@ func TestDetectOverlap(t *testing.T) {
 		slot(t, at(1, 10), time.Hour),
 		slot(t, at(1, 14), 2*time.Hour),
 	}
+	// #region cases
 	cases := []struct {
 		name    string
 		slot    domain.TimeSlot
@@ -28,7 +29,10 @@ func TestDetectOverlap(t *testing.T) {
 		{"直前に接する", slot(t, at(1, 9), time.Hour), nil},
 		{"直後に接する", slot(t, at(1, 11), time.Hour), nil},
 		{"別の日", slot(t, at(2, 10), time.Hour), nil},
+		{"同じ瞬間を UTC で渡す", slot(t, at(1, 10).UTC(), time.Hour),
+			domain.ErrOverlap},
 	}
+	// #endregion
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			err := domain.DetectOverlap(c.slot, existing)

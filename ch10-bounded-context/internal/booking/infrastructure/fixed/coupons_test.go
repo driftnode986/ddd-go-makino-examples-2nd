@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"example.com/trainingbooking/internal/booking/application"
+	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/booking/infrastructure/fixed"
 )
 
@@ -13,8 +14,12 @@ func TestCoupons_FindsKnownCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Find: %v", err)
 	}
-	if c.Percent() != 10 {
-		t.Errorf("Percent = %d", c.Percent())
+	want, err := domain.NewCoupon(10)
+	if err != nil {
+		t.Fatalf("NewCoupon: %v", err)
+	}
+	if !c.Equal(want) {
+		t.Errorf("c = %v, want %v", c, want)
 	}
 }
 
