@@ -1,0 +1,27 @@
+# Go のビルド結果
+*.test
+*.out
+*.exe
+*.dll
+*.so
+*.dylib
+coverage.out
+coverage.html
+*.cov
+vendor/
+testcontainers.log
+
+# 認証情報
+.env
+.env.*
+!.env.example
+credentials
+*.pem
+*.key
+
+# OS とエディタ
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

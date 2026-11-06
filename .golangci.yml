@@ -1,0 +1,122 @@
+# golangci-lint v2 の設定。repo 全体で共通です。
+# 各 go.mod のディレクトリで golangci-lint run ./... を実行します。
+# 紙面に入る桁数に合わせ、1行を69桁までにします。
+version: "2"
+
+run:
+  # 統合テストも検査の対象にします。
+  build-tags:
+    - integration
+
+linters:
+  default: none
+  enable:
+    - depguard
+    - lll
+  settings:
+    lll:
+      line-length: 69
+      tab-width: 4
+    depguard:
+      rules:
+        # コンテキスト間で import できるのは相手の contract だけです。
+        booking-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/booking/**"
+          allow:
+            - example.com/trainingbooking/internal/catalog/contract
+            - example.com/trainingbooking/internal/identity/contract
+          deny:
+            - pkg: example.com/trainingbooking/internal/catalog
+              desc: contract 以外を import できません
+            - pkg: example.com/trainingbooking/internal/identity
+              desc: contract 以外を import できません
+        catalog-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/catalog/**"
+          allow:
+            - example.com/trainingbooking/internal/booking/contract
+            - example.com/trainingbooking/internal/identity/contract
+          deny:
+            - pkg: example.com/trainingbooking/internal/booking
+              desc: contract 以外を import できません
+            - pkg: example.com/trainingbooking/internal/identity
+              desc: contract 以外を import できません
+        identity-boundary:
+          list-mode: lax
+          files:
+            - "**/internal/identity/**"
+          allow:
+            - example.com/trainingbooking/internal/booking/contract
+            - example.com/trainingbooking/internal/catalog/contract
+          deny:
+            - pkg: example.com/trainingbooking/internal/booking
+              desc: contract 以外を import できません
+            - pkg: example.com/trainingbooking/internal/catalog
+              desc: contract 以外を import できません
+        # domain は外側のレイヤーと pgx を知りません。
+        domain-layer:
+          list-mode: lax
+          files:
+            - "**/internal/*/domain/**"
+          deny:
+            - pkg: example.com/trainingbooking/internal/booking/application
+              desc: domain から外側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/booking/infrastructure
+              desc: domain から外側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/booking/presentation
+              desc: domain から外側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/catalog/application
+              desc: domain から外側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/catalog/infrastructure
+              desc: domain から外側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/catalog/presentation
+              desc: domain から外側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/identity/application
+              desc: domain から外側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/identity/infrastructure
+              desc: domain から外側のレイヤーを import できません
+            - pkg: example.com/trainingbooking/internal/identity/presentation
+              desc: domain から外側のレイヤーを import できません
+            - pkg: github.com/jackc/pgx
+              desc: domain から pgx を import できません
+        # application は実装を知りません。テストは実装を組み立てて使います。
+        application-layer:
+          list-mode: lax
+          files:
+            - "**/internal/*/application/**"
+            - "!$test"
+          deny:
+            - pkg: example.com/trainingbooking/internal/booking/infrastructure
+              desc: application から infrastructure を import できません
+            - pkg: example.com/trainingbooking/internal/booking/presentation
+              desc: application から presentation を import できません
+            - pkg: example.com/trainingbooking/internal/catalog/infrastructure
+              desc: application から infrastructure を import できません
+            - pkg: example.com/trainingbooking/internal/catalog/presentation
+              desc: application から presentation を import できません
+            - pkg: example.com/trainingbooking/internal/identity/infrastructure
+              desc: application から infrastructure を import できません
+            - pkg: example.com/trainingbooking/internal/identity/presentation
+              desc: application から presentation を import できません
+            - pkg: github.com/jackc/pgx
+              desc: application から pgx を import できません
+  exclusions:
+    generated: strict
+    paths:
+      - sqlcgen/
+    rules:
+      # import の行は折り返せません。
+      - linters:
+          - lll
+        source: '^\s*(import\s+)?(\w+\s+)?"[^"]+"\s*$'
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: strict
+    paths:
+      - sqlcgen/

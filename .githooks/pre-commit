@@ -1,0 +1,45 @@
+#!/bin/bash
+# インクルード方式（repo が原本）のサンプル repo 用 pre-commit。repo 直下 .githooks/pre-commit として置き
+#   git config core.hooksPath .githooks
+# で有効化する。repo を直すのは正しい手順。ここでは本へのインクルードが壊れないことだけを見る:
+#   - #region / #endregion の対応（閉じ忘れ・名前違い・同名の重複）
+#   - 秘密情報（gitleaks があれば）
+# 本への反映は books-monorepo 側で pin を上げて companion.py report（docs/rules/companion-repo.md）
+python3 - <<'PY' || exit 1
+import re, subprocess, sys
+RE = re.compile(r"^\s*(?://|#|--|<!--)\s*#(end)?region\b[ \t]*([\w.-]*)[ \t]*(?:-->)?\s*$")
+staged = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"], capture_output=True, text=True).stdout.split()
+bad = []
+for f in staged:
+    # バイナリー（.db）や Shift_JIS の CSV も混じるので、読めない文字は置き換えて読む（#region の検査は ASCII の行だけを見る）
+    text = subprocess.run(["git", "show", f":{f}"], capture_output=True).stdout.decode("utf-8", "replace")
+    stack, seen = [], set()
+    for i, line in enumerate(text.split("\n"), 1):
+        m = RE.match(line)
+        if not m:
+            continue
+        if m.group(1):
+            if not stack:
+                bad.append(f"{f}:{i} 対応する #region の無い #endregion")
+            elif m.group(2) and m.group(2) != stack[-1]:
+                bad.append(f"{f}:{i} #endregion {m.group(2)} が開いている {stack[-1]} と合わない"); stack.pop()
+            else:
+                stack.pop()
+        else:
+            n = m.group(2)
+            if not n:
+                bad.append(f"{f}:{i} #region に名前が無い")
+            elif n in seen:
+                bad.append(f"{f}:{i} 印 {n} が同じファイルに2つある")
+            else:
+                seen.add(n); stack.append(n)
+    for n in stack:
+        bad.append(f"{f} 印 {n} が閉じていない")
+for b in bad:
+    print("❌", b)
+sys.exit(1 if bad else 0)
+PY
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --no-banner || { echo "❌ 秘密情報の疑い（gitleaks）"; exit 1; }
+fi
+exit 0

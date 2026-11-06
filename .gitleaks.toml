@@ -1,0 +1,16 @@
+# gitleaks 設定。public 化の前に `gitleaks detect`（全履歴）を必ず通す。
+[extend]
+useDefault = true
+
+[allowlist]
+description = "ドキュメントの慣例値。実在しないので検出から除外する"
+regexes = [
+  '''123456789012''',                 # AWS 公式ドキュメントのダミーアカウントID
+  '''AKIAIOSFODNN7EXAMPLE''',         # AWS 公式のダミーアクセスキー
+  '''wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY''',
+  '''[A-Za-z0-9._%+-]+@example\.com''',
+]
+paths = [
+  '''\.gitleaks\.toml''',
+  '''(^|/)\.terraform\.lock\.hcl$''',
+]
