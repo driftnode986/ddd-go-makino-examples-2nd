@@ -18,6 +18,7 @@ logs assign TestAnyStatusCanBeAssigned ./steps/openstatus/
 build setstatus setstatus
 logs overwrite TestOverwrite ./steps/pitfalls/
 logs value-receiver TestConfirmHasNoEffect ./steps/valuereceiver/
+golangci-lint run --no-config ./steps/valuereceiver/ 2>&1 | grep SA4005 | sed "s|^steps/valuereceiver/||" | shape >out/value-receiver-lint.txt
 logs copy-range TestCopyInRange ./steps/pitfalls/
 logs pointer-slice TestPointerSliceIsConfirmed ./steps/pitfalls/
 logs seat-left TestSeatIsLeft ./steps/lenientcancel/

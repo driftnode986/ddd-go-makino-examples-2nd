@@ -1,0 +1,2 @@
+booking.go:18:2: SA4005: ineffective assignment to field
+Booking.status (staticcheck)

@@ -24,7 +24,7 @@ go test ./...
 
 ## 期待する出力
 
-次の行が `ok` で出ます。最後に実行時間が付きます。テストの無いパッケージは `[no test files]` と出ます。
+次の行が `ok` で出ます。最後に実行時間が付きます。
 
 ```text
 ok  	example.com/trainingbooking/internal/booking/domain

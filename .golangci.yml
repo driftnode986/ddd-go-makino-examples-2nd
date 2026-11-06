@@ -13,6 +13,7 @@ linters:
   enable:
     - depguard
     - lll
+    - staticcheck
   settings:
     lll:
       line-length: 69
@@ -202,6 +203,10 @@ linters:
     paths:
       - sqlcgen/
     rules:
+      # steps/ は失敗を見せるために、わざと誤ったコードを置いています。
+      - linters:
+          - staticcheck
+        path: /steps/
       # import の行は折り返せません。
       - linters:
           - lll

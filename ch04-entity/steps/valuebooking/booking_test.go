@@ -34,7 +34,10 @@ func TestNoIdentity(t *testing.T) {
 		Member: member, Lesson: lesson, Slot: slot,
 		Status: domain.StatusCancelled,
 	}
-	second := first
+	second := valuebooking.Booking{
+		Member: member, Lesson: lesson, Slot: slot,
+		Status: domain.StatusCancelled,
+	}
 	t.Logf("two different bookings: %v", first == second)
 	// #endregion
 
