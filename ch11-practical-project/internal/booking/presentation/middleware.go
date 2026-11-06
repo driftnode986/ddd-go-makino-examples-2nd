@@ -90,8 +90,8 @@ func withRecovery(h *handlers, next http.Handler) http.Handler {
 				)
 				// 応答を書き始めていれば、ステータスは変えられない
 				if rec.status == 0 {
-					h.writeJSON(rec, r,
-						http.StatusInternalServerError, errorResponse{
+					h.writeJSON(rec, r, statusOf(application.KindInternal),
+						errorResponse{
 							Kind:    application.KindInternal,
 							Message: messageInternal,
 						})
