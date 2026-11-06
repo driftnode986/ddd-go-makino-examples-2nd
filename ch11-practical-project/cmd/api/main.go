@@ -92,14 +92,26 @@ func serve(
 	case <-ctx.Done():
 	}
 	logger.Info("shutting down")
-	shutdown, cancel := context.WithTimeout(
-		context.Background(), shutdownTimeout)
-	defer cancel()
-	if err := server.Shutdown(shutdown); err != nil {
-		return fmt.Errorf("shutdown: %w", err)
+	if err := shutdown(server, shutdownTimeout); err != nil {
+		return err
 	}
 	if err := <-errs; !errors.Is(err, http.ErrServerClosed) {
 		return err
+	}
+	return nil
+}
+
+// shutdown は処理中のリクエストを timeout まで待つ。残ったものは
+// 接続を閉じて中断する。DB を待ったまま残ると接続が返らず、
+// プールを閉じる処理が止まる。
+func shutdown(server *http.Server, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(
+		context.Background(), timeout)
+	defer cancel()
+	err := server.Shutdown(ctx)
+	if err != nil {
+		return errors.Join(
+			fmt.Errorf("shutdown: %w", err), server.Close())
 	}
 	return nil
 }
