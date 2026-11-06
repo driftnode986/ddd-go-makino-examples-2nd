@@ -1,0 +1,36 @@
+version: "2"
+overrides:
+  go:
+    overrides:
+      # ID は String と ParseID で受け渡す
+      - db_type: uuid
+        go_type: string
+      - db_type: timestamptz
+        go_type: time.Time
+sql:
+  - engine: postgresql
+    schema: internal/booking/infrastructure/postgres/migrations
+    queries: internal/booking/infrastructure/postgres/queries.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/booking/infrastructure/postgres/sqlcgen
+        sql_package: pgx/v5
+        # LEFT JOIN の明細の列はポインタで受ける
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: internal/catalog/infrastructure/postgres/migrations
+    queries: internal/catalog/infrastructure/postgres/queries.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/catalog/infrastructure/postgres/sqlcgen
+        sql_package: pgx/v5
+  - engine: postgresql
+    schema: internal/platform/outbox/migrations
+    queries: internal/platform/outbox/queries.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/platform/outbox/sqlcgen
+        sql_package: pgx/v5
