@@ -17,7 +17,7 @@
 - `ch02-go-idioms/` 第2章。Go の慣習を確かめる短い例
 - `ch03-value-object/` 第3章。`Email`・`Money`・`TimeSlot`・`ID[T]`
 - `ch04-entity/` 第4章。`Booking` の状態遷移と24時間ルール、`Clock`
-- `ch05-domain-service/` 第5章。割引の計算と `Coupon`
+- `ch05-domain-service/` 第5章。割引の計算と `Coupon`、時間帯の重なりの `DetectOverlap`
 - `ch06-aggregate-factory/` 第6章。`BookingOption` と `Total`、再構築
 - `ch07-repository/` 第7章。PostgreSQL と in-memory のリポジトリ、契約テスト
 - `ch08-application-service/` 第8章。ユースケース、Query、Tx、エラーの変換

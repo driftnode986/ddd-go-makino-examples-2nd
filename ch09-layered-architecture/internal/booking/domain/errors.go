@@ -7,7 +7,6 @@ var (
 	ErrNotFound        = errors.New("booking not found")
 	ErrDuplicate       = errors.New("booking already exists")
 	ErrVersionConflict = errors.New("booking version conflict")
-	ErrOverlap         = errors.New("booking time slot overlaps")
 )
 
 // 集約の操作が返すエラーである。
@@ -24,3 +23,6 @@ var (
 	ErrDiscountTooLarge  = errors.New("discount exceeds subtotal")
 	ErrInvalidCoupon     = errors.New("invalid coupon")
 )
+
+// ErrOverlap は同じ会員の時間帯が重なることを表す。
+var ErrOverlap = errors.New("booking time slot overlaps")
