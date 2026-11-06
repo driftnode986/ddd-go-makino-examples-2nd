@@ -88,7 +88,7 @@ curl -X POST localhost:8080/bookings/控えた予約のID/cancel
 
 ## 配信が遅れたとき
 
-`pending` が続く時間の許容は5分です。配信が失敗している間も止めずに再配信を続け、`GET /members/{id}/bookings` では `pending` のまま見えます。失敗は `WARN` でログに残し、5分を超えたら `ERROR` に上げます。原因は `outbox` テーブルの `attempts` と `last_error` で確かめられます。止まるのは同じ集約のイベントだけで、ほかの集約の配信は続きます。
+`pending` が続く時間の許容は5分です。配信が失敗している間も止めずに再配信を続け、`GET /members/{id}/bookings` では `pending` のまま見えます。失敗は `WARN` でログに残し、5分を超えたら `ERROR` に上げます。原因は `outbox` テーブルの `attempts` と `last_error` で確かめられます。止まるのは同じ集約のイベントだけです。配信処理は失敗の少ないイベントから配るので、失敗が続く集約が1回に配る件数の上限（100件）を埋めても、ほかの集約の配信は続きます。
 
 ## やり直す
 

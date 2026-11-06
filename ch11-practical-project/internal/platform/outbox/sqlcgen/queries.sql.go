@@ -53,7 +53,7 @@ SELECT h.id, h.event_id, h.aggregate_type, h.aggregate_id, h.sequence, h.event_t
     WHERE published_at IS NULL
     ORDER BY aggregate_type, aggregate_id, sequence
 ) h
-ORDER BY h.id
+ORDER BY h.attempts, h.id
 LIMIT $1
 `
 
@@ -71,7 +71,8 @@ type ListDeliverableRow struct {
 }
 
 // 集約ごとに未配信の先頭だけを返す。先行が残るあいだ、後のものは
-// 候補に出ない。
+// 候補に出ない。失敗の少ない順に返し、失敗した集約を次の周回で
+// 後ろへ回す。失敗し続ける集約が件数の上限を埋めないためである。
 func (q *Queries) ListDeliverable(ctx context.Context, limit int32) ([]ListDeliverableRow, error) {
 	rows, err := q.db.Query(ctx, listDeliverable, limit)
 	if err != nil {

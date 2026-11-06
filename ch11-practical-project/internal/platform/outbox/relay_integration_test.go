@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -231,6 +232,47 @@ func TestRelay_FailedEventBlocksSameAggregateOnly(t *testing.T) {
 	want = []string{"b1", "b2", "a1", "a2"}
 	if diff := cmp.Diff(want, r.names); diff != "" {
 		t.Errorf("回復後 (-want +got):\n%s", diff)
+	}
+}
+
+// 失敗し続ける集約が1回の配信の枠を埋めても、ほかの集約は配られる。
+// 失敗した集約の後のイベントは追い越さない。
+func TestRelay_FailuresDoNotFillTheBatch(t *testing.T) {
+	f := newFixture(t)
+	failing := uuid.New().String()
+	f.append(t, message(failing, "stuck1"),
+		message(failing, "stuck2"))
+	r := recorder{fail: map[string]error{
+		"stuck1": errors.New("boom"),
+	}}
+	const batch = 100
+	for i := range batch - 1 {
+		name := fmt.Sprintf("failing%d", i)
+		r.fail[name] = errors.New("boom")
+		f.append(t, message(uuid.New().String(), name))
+	}
+	healthy := uuid.New().String()
+	f.append(t, message(healthy, "ok1"), message(healthy, "ok2"))
+	var buf bytes.Buffer
+	relay := f.relay(&r, &buf, outbox.RelayOptions{BatchSize: batch})
+
+	for range 3 {
+		if _, err := relay.RunOnce(t.Context()); err != nil {
+			t.Fatalf("RunOnce: %v", err)
+		}
+	}
+	want := []string{"ok1", "ok2"}
+	if diff := cmp.Diff(want, r.names); diff != "" {
+		t.Fatalf("失敗中 (-want +got):\n%s", diff)
+	}
+
+	// 原因が直れば、止まっていた集約も順に配られる
+	r.fail, r.names = nil, nil
+	drain(t, relay)
+	stuck1 := slices.Index(r.names, "stuck1")
+	stuck2 := slices.Index(r.names, "stuck2")
+	if len(r.names) != batch+1 || stuck1 < 0 || stuck1 > stuck2 {
+		t.Errorf("回復後 = %v", r.names)
 	}
 }
 

@@ -81,7 +81,8 @@ func (s *Store) Append(
 	return nil
 }
 
-// Deliverable は集約ごとに未配信の先頭を、古い順に limit 件返す。
+// Deliverable は集約ごとに未配信の先頭を、失敗の少ない順に limit
+// 件返す。失敗の回数が同じなら古い順である。
 func (s *Store) Deliverable(
 	ctx context.Context, limit int,
 ) ([]Delivery, error) {
