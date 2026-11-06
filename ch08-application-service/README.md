@@ -40,6 +40,7 @@ go test -v -tags=integration -run TestPlaceBooking_RollsBackWhenOutboxFails ./in
 ```text
 ok  	example.com/trainingbooking/internal/booking/application
 ok  	example.com/trainingbooking/internal/booking/domain
+ok  	example.com/trainingbooking/internal/booking/infrastructure/fixed
 ok  	example.com/trainingbooking/internal/booking/infrastructure/memory
 ok  	example.com/trainingbooking/internal/booking/infrastructure/postgres
 ok  	example.com/trainingbooking/internal/identity/domain

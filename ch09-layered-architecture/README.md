@@ -87,6 +87,7 @@ curl -i -X POST localhost:8080/bookings \
 ok  	example.com/trainingbooking/cmd/api
 ok  	example.com/trainingbooking/internal/booking/application
 ok  	example.com/trainingbooking/internal/booking/domain
+ok  	example.com/trainingbooking/internal/booking/infrastructure/fixed
 ok  	example.com/trainingbooking/internal/booking/infrastructure/memory
 ok  	example.com/trainingbooking/internal/booking/infrastructure/postgres
 ok  	example.com/trainingbooking/internal/booking/presentation
