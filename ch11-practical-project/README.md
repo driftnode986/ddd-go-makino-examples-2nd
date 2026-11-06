@@ -54,6 +54,24 @@ curl -i -X POST localhost:8080/bookings \
 curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000001/bookings
 ```
 
+## クーポンで割り引く
+
+太郎が朝のヨガをクーポンつきで予約します。使えるコードは `WELCOME10`（10%）で、割引率は受け取りません。
+
+```bash
+curl -i -X POST localhost:8080/bookings \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "member_id": "0196f5a0-0000-7000-8000-000000000002",
+    "lesson_id": "0196f5a0-0000-7000-8001-000000000001",
+    "options": [{"name": "シューズ", "quantity": 1}],
+    "coupon_code": "WELCOME10"
+  }'
+curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000002/bookings
+```
+
+少し待って一覧を読むと `confirmed` になっています。料金とオプションの合計3300円の10%を引いて、合計は2970円です。
+
 ## 満席・キャンセル・入力の誤り
 
 定員1のレッスンを花子が予約します。`id` を控えておきます。
@@ -85,10 +103,11 @@ curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000002/bookings
 curl -X POST localhost:8080/bookings/控えた予約のID/cancel
 ```
 
-次の2つは同期で拒否します。
+次の3つは同期で拒否します。
 
 - 花子が同じ時間帯の朝の筋力トレーニング（`...8001-000000000003`）を予約すると `409`
 - 存在しない会員（例: `0196f5a0-0000-7000-8000-00000000ffff`）で予約すると `400`
+- 不明なクーポンのコード（例: `"coupon_code": "UNKNOWN"`）で予約すると `400`
 
 ## 配信が遅れたとき
 

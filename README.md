@@ -20,7 +20,7 @@
 - `ch05-domain-service/` 第5章。割引の計算と `Coupon`、時間帯の重なりの `DetectOverlap`
 - `ch06-aggregate-factory/` 第6章。`BookingOption` と `Total`、再構築
 - `ch07-repository/` 第7章。PostgreSQL と in-memory のリポジトリ、契約テスト
-- `ch08-application-service/` 第8章。ユースケース、Query、Tx、エラーの変換
+- `ch08-application-service/` 第8章。ユースケース、Query、Tx、エラーの変換。重なりの確認とクーポンの割引を予約につなぎます
 - `ch09-layered-architecture/` 第9章。HTTP と `main`。`go run` で予約が `pending` で返ります
 - `ch10-bounded-context/` 第10章。Catalog とイベントの配信。予約が `confirmed` まで進みます
 - `ch11-practical-project/` 第11章。Identity を足した完成形

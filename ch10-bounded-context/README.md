@@ -51,6 +51,21 @@ curl -i -X POST localhost:8080/bookings \
 curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000001/bookings
 ```
 
+クーポンのコードを付けると、合計から割り引きます。使えるコードは `WELCOME10`（10%）です。不明なコードは `400` を返します。
+
+```bash
+curl -i -X POST localhost:8080/bookings \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "member_id": "0196f5a0-0000-7000-8000-000000000003",
+    "lesson_id": "0196f5a0-0000-7000-8001-000000000001",
+    "coupon_code": "WELCOME10"
+  }'
+curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000003/bookings
+```
+
+少し待って一覧を読むと `"status":"confirmed"`・`"total_yen":2700` になっています。
+
 定員1のレッスンは、別の `member_id` で2回予約すると2件目が `rejected` になります。`POST /bookings/{id}/cancel` で1件目をキャンセルすると席が戻り、次の予約は `confirmed` になります。
 
 止めるときは `make run` のターミナルで Ctrl+C を押し、`make down` を実行します。

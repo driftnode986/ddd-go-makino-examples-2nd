@@ -21,9 +21,10 @@ type optionRequest struct {
 // placeBookingRequest は POST /bookings の本文である。
 // 時間帯と料金はレッスンから取るので受け取らない。
 type placeBookingRequest struct {
-	MemberID string          `json:"member_id"`
-	LessonID string          `json:"lesson_id"`
-	Options  []optionRequest `json:"options"`
+	MemberID   string          `json:"member_id"`
+	LessonID   string          `json:"lesson_id"`
+	Options    []optionRequest `json:"options"`
+	CouponCode string          `json:"coupon_code"`
 }
 
 func (r placeBookingRequest) input() application.PlaceBookingInput {
@@ -35,9 +36,10 @@ func (r placeBookingRequest) input() application.PlaceBookingInput {
 		}
 	}
 	return application.PlaceBookingInput{
-		MemberID: r.MemberID,
-		LessonID: r.LessonID,
-		Options:  options,
+		MemberID:   r.MemberID,
+		LessonID:   r.LessonID,
+		Options:    options,
+		CouponCode: r.CouponCode,
 	}
 }
 

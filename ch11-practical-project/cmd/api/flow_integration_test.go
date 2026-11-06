@@ -282,6 +282,45 @@ func TestBookingFlow_RejectedWhenFull(t *testing.T) {
 	}
 }
 
+// クーポンの割引は確定した予約の合計に反映される。
+func TestBookingFlow_CouponDiscountsTotal(t *testing.T) {
+	f := newFlow(t, nil)
+	lesson := f.addLesson(1)
+	member := f.newMember()
+	rec := f.request("POST", "/bookings", fmt.Sprintf(
+		`{"member_id":%q,"lesson_id":%q,"coupon_code":"WELCOME10"}`,
+		member, lesson))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("予約: %d: %s", rec.Code, rec.Body)
+	}
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("本文: %v", err)
+	}
+	f.drain()
+	got := f.status(member, body.ID)
+	if got.Status != "confirmed" || got.TotalYen != 2700 {
+		t.Errorf("予約 = %+v", got)
+	}
+}
+
+func TestPlaceBooking_UnknownCouponIsBadRequest(t *testing.T) {
+	f := newFlow(t, nil)
+	lesson := f.addLesson(1)
+	rec := f.request("POST", "/bookings", fmt.Sprintf(
+		`{"member_id":%q,"lesson_id":%q,"coupon_code":"UNKNOWN"}`,
+		f.newMember(), lesson))
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d: %s", rec.Code, rec.Body)
+	}
+	n := f.countEvents(bookingcontract.EventBookingPlaced)
+	if n != 0 {
+		t.Errorf("イベント = %d 件", n)
+	}
+}
+
 func TestCancel_ReleasesSeat(t *testing.T) {
 	f := newFlow(t, nil)
 	lesson := f.addLesson(1)

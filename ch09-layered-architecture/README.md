@@ -5,6 +5,7 @@ HTTP の層と `main` を足して、初めて `go run` で動かします。
 ## できるようになったこと
 
 - `POST /bookings`・`POST /bookings/{id}/cancel`・`GET /members/{id}/bookings` を `net/http` の `ServeMux` で受けられます
+- `POST /bookings` は任意の `coupon_code` を受け取ります。割引率は受け取りません
 - `ApplicationError` の `Kind` を HTTP ステータスに変換します。500 の本文に内部の文字列を出しません
 - `Recovery`・`RequestID`・`Logging` のミドルウェアで、すべてのリクエストをログに記録します
 - SIGTERM で処理中のリクエストを待って止まります
@@ -42,6 +43,20 @@ curl -i -X POST localhost:8080/bookings \
 curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000001/bookings
 ```
 
+クーポンのコードを付けると、合計から割り引きます。使えるコードは `WELCOME10`（10%）です。
+
+```bash
+curl -i -X POST localhost:8080/bookings \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "member_id": "0196f5a0-0000-7000-8000-000000000001",
+    "lesson_id": "0196f5a0-0000-7000-8000-000000000002",
+    "start": "2030-06-01T14:00:00+09:00",
+    "duration_minutes": 60,
+    "coupon_code": "WELCOME10"
+  }'
+```
+
 止めるときは `go run` のターミナルで Ctrl+C を押し、`make down` を実行します。
 
 ## 期待する出力
@@ -58,7 +73,13 @@ curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000001/bookings
 {"kind":"conflict","message":"同じ時間帯に別の予約があります"}
 ```
 
-一覧には `"status":"pending"`・`"total_yen":3000` の予約が1件出ます。
+一覧には `"status":"pending"`・`"total_yen":3000` の予約が出ます。クーポンつきの予約の合計は `"total_yen":2700` です。
+
+`coupon_code` を `UNKNOWN` のような不明なコードにすると、`400` と次の本文を返し、予約は保存されません。
+
+```json
+{"kind":"invalid","message":"クーポンのコードが正しくありません"}
+```
 
 `go test -tags=integration ./...` は次の行が `ok` で出ます。最後に実行時間が付きます。テストの無いパッケージは `[no test files]` と出ます。
 

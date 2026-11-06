@@ -162,12 +162,41 @@ func TestPostBookings_Created(t *testing.T) {
 	}
 }
 
+func TestPostBookings_PassesCouponCode(t *testing.T) {
+	cases := []struct{ name, body, want string }{
+		{"省略", validBody, ""},
+		{"指定", strings.Replace(validBody, "{",
+			`{"coupon_code":"WELCOME10",`, 1), "WELCOME10"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var got application.PlaceBookingInput
+			s := stubUseCases{place: func(
+				in application.PlaceBookingInput,
+			) (application.PlaceBookingOutput, error) {
+				got = in
+				return application.PlaceBookingOutput{}, nil
+			}}
+			var buf bytes.Buffer
+			router := newRouter(s, &buf)
+			rec := do(router, "POST", "/bookings", c.body)
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("status = %d: %s", rec.Code, rec.Body)
+			}
+			if got.CouponCode != c.want {
+				t.Errorf("CouponCode = %q", got.CouponCode)
+			}
+		})
+	}
+}
+
 func TestPostBookings_BadJSON(t *testing.T) {
 	cases := []struct{ name, body string }{
 		{"空", ""},
 		{"構文の誤り", `{"member_id":`},
 		{"型の誤り", `{"options":"シューズ"}`},
 		{"知らない項目", `{"fee_yen":1}`},
+		{"割引率は受け取らない", `{"discount_percent":10}`},
 		{"開始は受け取らない", `{"start":"2030-06-01T10:00:00+09:00"}`},
 		{"長さは受け取らない", `{"duration_minutes":60}`},
 		{"単価は受け取らない",
@@ -628,5 +657,31 @@ func TestRouter_WithUseCases(t *testing.T) {
 	bookings, ok := decode(t, rec)["bookings"].([]any)
 	if !ok || len(bookings) != 1 {
 		t.Errorf("一覧: %s", rec.Body)
+	}
+
+	// 別の会員なら同じ時間帯も予約できる
+	const other = "0196f5a0-0000-7000-8000-000000000003"
+	withCoupon := func(code string) string {
+		body := strings.Replace(validBody, member, other, 1)
+		return strings.Replace(
+			body, "{", `{"coupon_code":"`+code+`",`, 1)
+	}
+	rec = do(router, "POST", "/bookings", withCoupon("UNKNOWN"))
+	if rec.Code != http.StatusBadRequest ||
+		decode(t, rec)["kind"] != "invalid" {
+		t.Errorf("不明なコード: %d: %s", rec.Code, rec.Body)
+	}
+	rec = do(router, "POST", "/bookings", withCoupon("WELCOME10"))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("クーポンつきの予約: %d: %s", rec.Code, rec.Body)
+	}
+	rec = do(router, "GET", "/members/"+other+"/bookings", "")
+	bookings, ok = decode(t, rec)["bookings"].([]any)
+	if !ok || len(bookings) != 1 {
+		t.Fatalf("一覧: %s", rec.Body)
+	}
+	got, ok := bookings[0].(map[string]any)
+	if !ok || got["total_yen"] != 3240.0 {
+		t.Errorf("割引後の合計: %s", rec.Body)
 	}
 }

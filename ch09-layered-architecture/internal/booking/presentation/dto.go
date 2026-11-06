@@ -21,6 +21,7 @@ type placeBookingRequest struct {
 	LessonID        string    `json:"lesson_id"`
 	Start           time.Time `json:"start"`
 	DurationMinutes int       `json:"duration_minutes"`
+	CouponCode      string    `json:"coupon_code"`
 }
 
 func (r placeBookingRequest) toInput() (
@@ -32,10 +33,11 @@ func (r placeBookingRequest) toInput() (
 			errors.New("duration_minutes is too large")
 	}
 	return application.PlaceBookingInput{
-		MemberID: r.MemberID,
-		LessonID: r.LessonID,
-		Start:    r.Start,
-		Duration: time.Duration(r.DurationMinutes) * time.Minute,
+		MemberID:   r.MemberID,
+		LessonID:   r.LessonID,
+		Start:      r.Start,
+		Duration:   time.Duration(r.DurationMinutes) * time.Minute,
+		CouponCode: r.CouponCode,
 	}, nil
 }
 
