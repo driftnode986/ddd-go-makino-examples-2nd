@@ -80,34 +80,56 @@ curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000002/bookings
 
 ## 満席・キャンセル・入力の誤り
 
-定員1のレッスンを花子が予約します。`id` を控えておきます。
+定員1のレッスンで、満席の拒否とキャンセルで席が戻るところを確かめます。手順には `jq` を使います。まず、会員とレッスンの ID と、次の2つの関数を同じターミナルで定義します。
 
 ```bash
-curl -X POST localhost:8080/bookings \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "member_id": "0196f5a0-0000-7000-8000-000000000001",
-    "lesson_id": "0196f5a0-0000-7000-8001-000000000002"
-  }'
+# 予約して id を表示する（$1=会員 $2=レッスン）
+book() {
+  curl -s -X POST localhost:8080/bookings \
+    -H 'Content-Type: application/json' \
+    -d "{\"member_id\":\"$1\",\"lesson_id\":\"$2\"}" | jq -r .id
+}
+# pending でなくなるまで待ち、状態を表示する（$1=会員 $2=予約）
+wait_status() {
+  for _ in $(seq 50); do
+    state=$(curl -s "localhost:8080/members/$1/bookings" |
+      jq -r --arg id "$2" \
+        '.bookings[] | select(.id == $id) | .status')
+    [ "$state" != pending ] && break
+    sleep 0.2
+  done
+  echo "$state"
+}
+
+HANAKO=0196f5a0-0000-7000-8000-000000000001
+TARO=0196f5a0-0000-7000-8000-000000000002
+PILATES=0196f5a0-0000-7000-8001-000000000002
 ```
 
-同じレッスンを太郎が予約すると、`201` が返った後で `rejected` になります。
+花子が定員1のレッスンを予約します。キャンセルできるのは `confirmed` だけなので（`pending` のキャンセルは `409`）、状態を確かめてから次へ進みます。
 
 ```bash
-curl -X POST localhost:8080/bookings \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "member_id": "0196f5a0-0000-7000-8000-000000000002",
-    "lesson_id": "0196f5a0-0000-7000-8001-000000000002"
-  }'
-curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000002/bookings
+FIRST=$(book "$HANAKO" "$PILATES")
+wait_status "$HANAKO" "$FIRST"
 ```
 
-花子の `confirmed` の予約をキャンセルすると席が戻ります。太郎がもう一度予約すると、今度は `confirmed` になります。
+`confirmed` と表示されます。同じレッスンを太郎が予約すると、`201` が返った後で `rejected` になります。
 
 ```bash
-curl -X POST localhost:8080/bookings/控えた予約のID/cancel
+SECOND=$(book "$TARO" "$PILATES")
+wait_status "$TARO" "$SECOND"
 ```
+
+`rejected` と表示されます。花子の予約をキャンセルすると席が戻り、太郎がもう一度予約すると `confirmed` になります。
+
+```bash
+curl -s -X POST "localhost:8080/bookings/$FIRST/cancel"
+echo
+THIRD=$(book "$TARO" "$PILATES")
+wait_status "$TARO" "$THIRD"
+```
+
+キャンセルの応答は `"status":"cancelled"` で、最後に `confirmed` と表示されます。
 
 次のものは同期で拒否します。
 

@@ -9,14 +9,14 @@ Catalog を足し、イベントを outbox と配信処理で流します。予�
 - 再配信されても、処理済みの記録と集約の保存を同じ Tx で行うので、席は1回だけ動きます
 - `confirmed` をキャンセルすると席が戻ります
 - コンテキスト間の import を `contract` だけに絞り、`golangci-lint` の depguard で止めます
-- 時間帯と料金をレッスンから取ります。オプションも指定でき、一覧の `options` に明細が出ます
+- 時間帯・料金・オプションの単価を、第9章の固定値でなく Catalog のレッスンから取ります
 
 会員のコンテキストはまだ無いので、`member_id` は形式が正しければ何でも受け付けます。
 
 ## 第9章からの変更
 
-- 追加: `internal/catalog/`、`internal/platform/outbox/`、`internal/booking/contract/`、`internal/booking/infrastructure/acl/lessons.go`、`internal/booking/application/` の `lessons.go`・`seat_result_handler.go`、`internal/booking/infrastructure/postgres/outbox.go`、`cmd/api/app.go`、`scripts/seed.sql`
-- 変更: `place_booking.go` と HTTP の DTO（時間帯と料金を受け取らず、オプションを受け取る）、`main.go`（配信処理の起動と停止）
+- 追加: `internal/catalog/`、`internal/platform/outbox/`、`internal/booking/contract/`、`internal/booking/infrastructure/acl/lessons.go`、`internal/booking/application/seat_result_handler.go`、`internal/booking/infrastructure/postgres/outbox.go`、`cmd/api/app.go`、`scripts/seed.sql`
+- 変更: `place_booking.go` と `lessons.go`（`LessonTerms` を固定値でなく `LessonCatalog` から取る）、`main.go`（配信処理の起動と停止）
 - 削除: `LoggingOutbox`
 
 ## 動かし方
@@ -68,7 +68,61 @@ curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000003/bookings
 
 オプションは予約のときに付けます。後から足したり外したりする API はありません。レッスンに無い名前、0以下の数量、同じ名前の重複、金額のあふれは `400` を返します。
 
-定員1のレッスンは、別の `member_id` で2回予約すると2件目が `rejected` になります。`POST /bookings/{id}/cancel` で1件目をキャンセルすると席が戻り、次の予約は `confirmed` になります。
+### 満席とキャンセル
+
+定員1のレッスンで、満席の拒否とキャンセルで席が戻るところを確かめます。手順には `jq` を使います。まず、会員とレッスンの ID と、次の2つの関数を同じターミナルで定義します。
+
+```bash
+# 予約して id を表示する（$1=会員 $2=レッスン）
+book() {
+  curl -s -X POST localhost:8080/bookings \
+    -H 'Content-Type: application/json' \
+    -d "{\"member_id\":\"$1\",\"lesson_id\":\"$2\"}" | jq -r .id
+}
+# pending でなくなるまで待ち、状態を表示する（$1=会員 $2=予約）
+wait_status() {
+  for _ in $(seq 50); do
+    state=$(curl -s "localhost:8080/members/$1/bookings" |
+      jq -r --arg id "$2" \
+        '.bookings[] | select(.id == $id) | .status')
+    [ "$state" != pending ] && break
+    sleep 0.2
+  done
+  echo "$state"
+}
+
+MEMBER1=0196f5a0-0000-7000-8000-000000000001
+MEMBER2=0196f5a0-0000-7000-8000-000000000002
+PILATES=0196f5a0-0000-7000-8001-000000000002
+```
+
+1人目が定員1のレッスンを予約します。キャンセルできるのは `confirmed` だけなので（`pending` のキャンセルは `409`）、状態を確かめてから次へ進みます。
+
+```bash
+FIRST=$(book "$MEMBER1" "$PILATES")
+wait_status "$MEMBER1" "$FIRST"
+```
+
+`confirmed` と表示されます。同じレッスンを2人目が予約すると、`201` が返った後で `rejected` になります。
+
+```bash
+SECOND=$(book "$MEMBER2" "$PILATES")
+wait_status "$MEMBER2" "$SECOND"
+```
+
+`rejected` と表示されます。1人目の予約をキャンセルすると席が戻り、2人目がもう一度予約すると `confirmed` になります。
+
+```bash
+curl -s -X POST "localhost:8080/bookings/$FIRST/cancel"
+echo
+THIRD=$(book "$MEMBER2" "$PILATES")
+wait_status "$MEMBER2" "$THIRD"
+```
+
+キャンセルの応答は `"status":"cancelled"` で、最後に `confirmed` と表示されます。
+
+### 止める
+
 
 止めるときは `make run` のターミナルで Ctrl+C を押し、`make down` を実行します。
 
