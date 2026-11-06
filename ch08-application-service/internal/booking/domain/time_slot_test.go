@@ -47,7 +47,7 @@ func TestTimeSlot_SameInstantAcrossZones(t *testing.T) {
 
 // #endregion
 
-// #region business-hours-cases
+// #region business-hours
 
 func TestTimeSlot_BusinessHours(t *testing.T) {
 	cases := []struct {
@@ -66,20 +66,6 @@ func TestTimeSlot_BusinessHours(t *testing.T) {
 			domain.ErrOutOfBusinessHours},
 		{"日をまたぐ", at(1, 20), 14 * time.Hour,
 			domain.ErrOutOfBusinessHours},
-		// #endregion
-		{"90分は可", at(1, 10), 90 * time.Minute, nil},
-		{"長さ0は不可", at(1, 10), 0, domain.ErrInvalidDuration},
-		{"負の長さは不可", at(1, 10), -time.Hour,
-			domain.ErrInvalidDuration},
-		{"開始の分が0でない", at(1, 10).Add(time.Minute),
-			time.Hour, domain.ErrNotOnTheHour},
-		{"開始の秒が0でない", at(1, 10).Add(time.Second),
-			time.Hour, domain.ErrNotOnTheHour},
-		{"開始のナノ秒が0でない", at(1, 10).Add(1), time.Hour,
-			domain.ErrNotOnTheHour},
-		{"ゼロの時刻は不可", time.Time{}, time.Hour,
-			domain.ErrInvalidTimeSlot},
-		// #region business-hours-run
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -92,6 +78,36 @@ func TestTimeSlot_BusinessHours(t *testing.T) {
 }
 
 // #endregion
+
+func TestTimeSlot_InvalidInput(t *testing.T) {
+	cases := []struct {
+		name    string
+		start   time.Time
+		d       time.Duration
+		wantErr error
+	}{
+		{"90分は可", at(1, 10), 90 * time.Minute, nil},
+		{"長さ0は不可", at(1, 10), 0, domain.ErrInvalidDuration},
+		{"負の長さは不可", at(1, 10), -time.Hour,
+			domain.ErrInvalidDuration},
+		{"開始の分が0でない", at(1, 10).Add(time.Minute),
+			time.Hour, domain.ErrNotOnTheHour},
+		{"開始の秒が0でない", at(1, 10).Add(time.Second),
+			time.Hour, domain.ErrNotOnTheHour},
+		{"開始のナノ秒が0でない", at(1, 10).Add(1), time.Hour,
+			domain.ErrNotOnTheHour},
+		{"ゼロの時刻は不可", time.Time{}, time.Hour,
+			domain.ErrInvalidTimeSlot},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := domain.NewTimeSlot(c.start, c.d, jst)
+			if !errors.Is(err, c.wantErr) {
+				t.Fatalf("got %v, want %v", err, c.wantErr)
+			}
+		})
+	}
+}
 
 func TestTimeSlot_NilLocationIsAnError(t *testing.T) {
 	_, err := domain.NewTimeSlot(at(1, 10), time.Hour, nil)

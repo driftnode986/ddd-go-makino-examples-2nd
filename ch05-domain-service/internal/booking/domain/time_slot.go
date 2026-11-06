@@ -6,17 +6,13 @@ import (
 	"time"
 )
 
-// #region hours
+// #region declarations
 
 // 営業時間である。開始は9時から、終了は21時までとする。
 const (
 	openingHour = 9
 	closingHour = 21
 )
-
-// #endregion
-
-// #region slot-errors
 
 // TimeSlot の生成で起きるエラーである。
 var (
@@ -25,10 +21,6 @@ var (
 	ErrNotOnTheHour       = errors.New("start is not on the hour")
 	ErrOutOfBusinessHours = errors.New("out of business hours")
 )
-
-// #endregion
-
-// #region slot-type
 
 // TimeSlot は日付を含む開始時刻と長さで時間帯を表す。
 type TimeSlot struct {
@@ -52,8 +44,6 @@ func NewTimeSlot(
 		return TimeSlot{}, fmt.Errorf(
 			"%w: %s", ErrInvalidDuration, d)
 	}
-	// #endregion
-	// #region new-time-slot-hours
 	local := start.In(loc)
 	if local.Minute() != 0 || local.Second() != 0 ||
 		local.Nanosecond() != 0 {
@@ -71,17 +61,11 @@ func NewTimeSlot(
 
 // #endregion
 
-// #region slot-methods
-
 // Start は開始時刻を返す。
 func (s TimeSlot) Start() time.Time { return s.start }
 
 // End は終了時刻を返す。
 func (s TimeSlot) End() time.Time { return s.start.Add(s.duration) }
-
-// #endregion
-
-// #region overlaps
 
 // Overlaps は時間帯が重なるとき true を返す。
 // 半開区間として扱うので、接するだけなら重ならない。
@@ -89,8 +73,6 @@ func (s TimeSlot) Overlaps(other TimeSlot) bool {
 	return s.Start().Before(other.End()) &&
 		other.Start().Before(s.End())
 }
-
-// #endregion
 
 // #region slot-equal
 
@@ -103,11 +85,7 @@ func (s TimeSlot) Equal(other TimeSlot) bool {
 
 // #endregion
 
-// #region slot-is-zero
-
 // IsZero は NewTimeSlot を通していないとき true を返す。
 func (s TimeSlot) IsZero() bool {
 	return s.start.IsZero() && s.duration == 0
 }
-
-// #endregion

@@ -17,10 +17,42 @@ func yen(t *testing.T, amount int64) domain.Money {
 	return m
 }
 
+// #region rejects
+
 func TestMoney_RejectsNegative(t *testing.T) {
 	_, err := domain.NewMoney(-1)
 	if !errors.Is(err, domain.ErrNegativeMoney) {
 		t.Fatalf("NewMoney(-1) = %v", err)
+	}
+}
+
+func TestMoney_Overflow(t *testing.T) {
+	limit := yen(t, math.MaxInt64)
+	if _, err := limit.Add(yen(t, 1)); !errors.Is(
+		err, domain.ErrMoneyOverflow) {
+		t.Errorf("Add = %v", err)
+	}
+	if _, err := limit.Multiply(2); !errors.Is(
+		err, domain.ErrMoneyOverflow) {
+		t.Errorf("Multiply = %v", err)
+	}
+}
+
+// #endregion
+
+func TestMoney_AtTheLimit(t *testing.T) {
+	// 上限ちょうどはあふれない
+	half := yen(t, math.MaxInt64/2)
+	got, err := half.Multiply(2)
+	if err != nil {
+		t.Fatalf("Multiply: %v", err)
+	}
+	if got.Amount() != math.MaxInt64-1 {
+		t.Errorf("Amount = %d", got.Amount())
+	}
+	limit := yen(t, math.MaxInt64)
+	if _, err := limit.Add(yen(t, 0)); err != nil {
+		t.Errorf("Add(0) = %v", err)
 	}
 }
 
@@ -49,30 +81,6 @@ func TestMoney_Multiply(t *testing.T) {
 	_, err = yen(t, 300).Multiply(-1)
 	if !errors.Is(err, domain.ErrNegativeMoney) {
 		t.Fatalf("Multiply(-1) = %v", err)
-	}
-}
-
-func TestMoney_Overflow(t *testing.T) {
-	limit := yen(t, math.MaxInt64)
-	if _, err := limit.Add(yen(t, 1)); !errors.Is(
-		err, domain.ErrMoneyOverflow) {
-		t.Errorf("Add = %v", err)
-	}
-	if _, err := limit.Multiply(2); !errors.Is(
-		err, domain.ErrMoneyOverflow) {
-		t.Errorf("Multiply = %v", err)
-	}
-	// 上限ちょうどはあふれない
-	half := yen(t, math.MaxInt64/2)
-	got, err := half.Multiply(2)
-	if err != nil {
-		t.Fatalf("Multiply: %v", err)
-	}
-	if got.Amount() != math.MaxInt64-1 {
-		t.Errorf("Amount = %d", got.Amount())
-	}
-	if _, err := limit.Add(yen(t, 0)); err != nil {
-		t.Errorf("Add(0) = %v", err)
 	}
 }
 

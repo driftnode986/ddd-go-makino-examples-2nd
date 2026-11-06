@@ -22,6 +22,7 @@ func TestEmail_RejectsDisplayName(t *testing.T) {
 		"Taro <taro@example.com>",
 		"<taro@example.com>",
 		"taro@example.com (Taro)",
+		`"taro"@example.com`,
 	}
 	for _, in := range inputs {
 		_, err := domain.NewEmail(in)

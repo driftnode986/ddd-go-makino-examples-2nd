@@ -23,15 +23,15 @@ type Email struct {
 // #region new-email
 
 // NewEmail はアドレスだけの文字列から Email を作る。
-// 表示名や前後の空白を含む文字列は拒否し、
+// 表示名や前後の空白、引用符付きのローカル部は拒否し、
 // ドメイン部を小文字にそろえる。
 func NewEmail(s string) (Email, error) {
 	addr, err := mail.ParseAddress(s)
 	if err != nil {
 		return Email{}, fmt.Errorf("%w: %v", ErrInvalidEmail, err)
 	}
-	// ParseAddress は表示名や山括弧を取り除いて返す。
-	// 入力と一致しなければ、アドレス以外を含んでいる。
+	// ParseAddress は表示名や山括弧、ローカル部の引用符を取り除く。
+	// 入力が解析後の表記と一致しなければ拒否する。
 	if addr.Name != "" || addr.Address != s {
 		return Email{}, fmt.Errorf(
 			"%w: address only: %q", ErrInvalidEmail, s)

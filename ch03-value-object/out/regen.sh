@@ -21,6 +21,7 @@ build emailliteral emailliteral
 logs parse-address TestParseAddress ./steps/pitfalls/
 logs zero-email TestZeroEmailCompiles ./steps/pitfalls/
 logs float TestFloatPrice ./steps/pitfalls/
+logs integer TestIntegerPrice ./steps/pitfalls/
 logs overflow TestInt64Overflow ./steps/pitfalls/
 logs zones TestSameInstantDifferentResult ./steps/naiveslot/
 logs time-equal TestOperatorOnTimeSlot ./steps/pitfalls/

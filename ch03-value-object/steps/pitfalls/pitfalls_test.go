@@ -40,6 +40,17 @@ func TestFloatPrice(t *testing.T) {
 	}
 }
 
+func TestIntegerPrice(t *testing.T) {
+	// #region integer
+	price := int64(3000)
+	withTax := (price*110 + 99) / 100 // 切り上げ
+	t.Logf("withTax=%d", withTax)
+	// #endregion
+	if withTax != 3300 {
+		t.Fatalf("got %d", withTax)
+	}
+}
+
 func TestInt64Overflow(t *testing.T) {
 	// #region overflow
 	total := int64(math.MaxInt64)
@@ -73,5 +84,18 @@ func TestMarshalEmail(t *testing.T) {
 	// #endregion
 	if string(b) != "{}" {
 		t.Fatalf("非公開フィールドは JSON に出ないはず: %s", b)
+	}
+}
+
+// Start は渡された形のまま返すので、時を読むときは In を通す。
+func TestStartKeepsTheGivenZone(t *testing.T) {
+	jst := time.FixedZone("JST", 9*60*60)
+	start := time.Date(2030, time.June, 1, 10, 0, 0, 0, jst)
+	s, err := booking.NewTimeSlot(start.UTC(), time.Hour, jst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Start().Hour() != 1 || s.Start().In(jst).Hour() != 10 {
+		t.Fatalf("Start = %v", s.Start())
 	}
 }
