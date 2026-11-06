@@ -416,7 +416,9 @@ func testSaveReplacesOptions(
 	loaded := mustFind(t, r, b.ID())
 	current := loaded.State().Options
 	loaded = withOptions(t, loaded, current[1], current[2],
-		domain.OptionState{Name: "a", UnitPriceYen: 150, Quantity: 1})
+		domain.OptionState{
+			Name: "a", UnitPriceYen: 150, Quantity: 1,
+		})
 	mustSave(t, r, loaded)
 
 	got := mustFind(t, r, b.ID())
