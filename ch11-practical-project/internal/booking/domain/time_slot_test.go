@@ -25,27 +25,29 @@ func slot(
 	return s
 }
 
+// #region same-instant
+
 func TestTimeSlot_SameInstantAcrossZones(t *testing.T) {
-	inJST := at(1, 9)
-	inUTC := inJST.UTC()
-	a, errA := domain.NewTimeSlot(inJST, time.Hour, jst)
-	b, errB := domain.NewTimeSlot(inUTC, time.Hour, jst)
-	if errA != nil || errB != nil {
-		t.Fatalf("errA=%v errB=%v", errA, errB)
-	}
+	// 同じ瞬間を JST と UTC で渡すと、同じ時間帯になる
+	a := slot(t, at(1, 9), time.Hour)
+	b := slot(t, at(1, 9).UTC(), time.Hour)
 	if !a.Equal(b) || !b.Equal(a) {
 		t.Fatal("同じ瞬間の TimeSlot は Equal が true")
 	}
 
-	// 営業時間外も、どのゾーンで渡しても同じ結果になる
+	// 営業時間外は、どちらの形で渡しても拒否する
 	early := at(1, 8)
-	_, errA = domain.NewTimeSlot(early, time.Hour, jst)
-	_, errB = domain.NewTimeSlot(early.UTC(), time.Hour, jst)
+	_, errA := domain.NewTimeSlot(early, time.Hour, jst)
+	_, errB := domain.NewTimeSlot(early.UTC(), time.Hour, jst)
 	if !errors.Is(errA, domain.ErrOutOfBusinessHours) ||
 		!errors.Is(errB, domain.ErrOutOfBusinessHours) {
 		t.Fatalf("errA=%v errB=%v", errA, errB)
 	}
 }
+
+// #endregion
+
+// #region business-hours-cases
 
 func TestTimeSlot_BusinessHours(t *testing.T) {
 	cases := []struct {
@@ -64,6 +66,7 @@ func TestTimeSlot_BusinessHours(t *testing.T) {
 			domain.ErrOutOfBusinessHours},
 		{"日をまたぐ", at(1, 20), 14 * time.Hour,
 			domain.ErrOutOfBusinessHours},
+		// #endregion
 		{"90分は可", at(1, 10), 90 * time.Minute, nil},
 		{"長さ0は不可", at(1, 10), 0, domain.ErrInvalidDuration},
 		{"負の長さは不可", at(1, 10), -time.Hour,
@@ -76,6 +79,7 @@ func TestTimeSlot_BusinessHours(t *testing.T) {
 			domain.ErrNotOnTheHour},
 		{"ゼロの時刻は不可", time.Time{}, time.Hour,
 			domain.ErrInvalidTimeSlot},
+		// #region business-hours-run
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -86,6 +90,8 @@ func TestTimeSlot_BusinessHours(t *testing.T) {
 		})
 	}
 }
+
+// #endregion
 
 func TestTimeSlot_NilLocationIsAnError(t *testing.T) {
 	_, err := domain.NewTimeSlot(at(1, 10), time.Hour, nil)

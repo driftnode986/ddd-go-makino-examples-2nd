@@ -1,0 +1,4 @@
+=== RUN   TestEmail_NormalizesDomain
+--- PASS: TestEmail_NormalizesDomain (0.00s)
+PASS
+ok  example.com/trainingbooking/internal/identity/domain    0.087s

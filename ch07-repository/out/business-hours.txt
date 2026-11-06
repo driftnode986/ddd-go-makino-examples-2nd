@@ -1,0 +1,1 @@
+ok  example.com/trainingbooking/internal/booking/domain 0.163s

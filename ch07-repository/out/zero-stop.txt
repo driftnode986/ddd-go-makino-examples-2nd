@@ -1,0 +1,5 @@
+=== RUN   TestZeroEmailIsRejected
+    member_test.go:15: err=email is required
+--- PASS: TestZeroEmailIsRejected (0.00s)
+PASS
+ok  example.com/trainingbooking/steps/registermember    0.118s

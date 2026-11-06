@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// #region email-type
+
 // ErrInvalidEmail はメールアドレスの形式が不正なことを表す。
 var ErrInvalidEmail = errors.New("invalid email")
 
@@ -15,6 +17,10 @@ var ErrInvalidEmail = errors.New("invalid email")
 type Email struct {
 	value string
 }
+
+// #endregion
+
+// #region new-email
 
 // NewEmail はアドレスだけの文字列から Email を作る。
 // 表示名や前後の空白を含む文字列は拒否し、
@@ -34,6 +40,10 @@ func NewEmail(s string) (Email, error) {
 	return Email{value: s[:at] + strings.ToLower(s[at:])}, nil
 }
 
+// #endregion
+
+// #region email-methods
+
 // String はアドレスの文字列を返す。
 func (e Email) String() string { return e.value }
 
@@ -44,3 +54,5 @@ func (e Email) Equal(other Email) bool {
 
 // IsZero は NewEmail を通していないとき true を返す。
 func (e Email) IsZero() bool { return e.value == "" }
+
+// #endregion

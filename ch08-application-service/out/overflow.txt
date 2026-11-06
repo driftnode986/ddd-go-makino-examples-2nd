@@ -1,0 +1,5 @@
+=== RUN   TestInt64Overflow
+    pitfalls_test.go:51: total=-9223372036854775808
+--- PASS: TestInt64Overflow (0.00s)
+PASS
+ok  example.com/trainingbooking/steps/pitfalls  0.102s

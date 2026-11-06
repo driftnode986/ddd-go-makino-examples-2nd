@@ -1,0 +1,3 @@
+# example.com/trainingbooking/steps/testdata/blankfield
+steps/testdata/blankfield/main.go:19:24: cannot convert member
+(variable of struct type ID[memberMarker]) to type ID[bookingMarker]

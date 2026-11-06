@@ -1,0 +1,5 @@
+=== RUN   TestMarshalEmail
+    pitfalls_test.go:78: {}
+--- PASS: TestMarshalEmail (0.00s)
+PASS
+ok  example.com/trainingbooking/steps/pitfalls  0.203s

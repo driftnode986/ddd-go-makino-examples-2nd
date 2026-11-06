@@ -1,0 +1,4 @@
+=== RUN   TestTimeSlot_SameInstantAcrossZones
+--- PASS: TestTimeSlot_SameInstantAcrossZones (0.00s)
+PASS
+ok  example.com/trainingbooking/internal/booking/domain 0.290s

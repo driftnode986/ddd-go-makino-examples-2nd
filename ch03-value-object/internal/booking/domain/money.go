@@ -7,6 +7,8 @@ import (
 	"math"
 )
 
+// #region money-type
+
 // Money の計算で起きるエラーである。
 var (
 	ErrNegativeMoney = errors.New("negative money")
@@ -18,6 +20,10 @@ type Money struct {
 	yen int64
 }
 
+// #endregion
+
+// #region new-money
+
 // NewMoney は金額から Money を作る。負の金額は拒否する。
 func NewMoney(yen int64) (Money, error) {
 	if yen < 0 {
@@ -26,6 +32,10 @@ func NewMoney(yen int64) (Money, error) {
 	return Money{yen: yen}, nil
 }
 
+// #endregion
+
+// #region add
+
 // Add は合計を返す。int64 を超えるときはエラーを返す。
 func (m Money) Add(other Money) (Money, error) {
 	if m.yen > math.MaxInt64-other.yen {
@@ -33,6 +43,10 @@ func (m Money) Add(other Money) (Money, error) {
 	}
 	return Money{yen: m.yen + other.yen}, nil
 }
+
+// #endregion
+
+// #region multiply
 
 // Multiply は n 倍の金額を返す。負の n は拒否する。
 func (m Money) Multiply(n int) (Money, error) {
@@ -46,6 +60,10 @@ func (m Money) Multiply(n int) (Money, error) {
 	return Money{yen: m.yen * int64(n)}, nil
 }
 
+// #endregion
+
+// #region money-methods
+
 // Amount は金額を円で返す。
 func (m Money) Amount() int64 { return m.yen }
 
@@ -54,3 +72,5 @@ func (m Money) IsZero() bool { return m.yen == 0 }
 
 // Equal は同じ金額のとき true を返す。
 func (m Money) Equal(other Money) bool { return m.yen == other.yen }
+
+// #endregion

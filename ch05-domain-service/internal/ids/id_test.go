@@ -66,6 +66,8 @@ func TestID_TypesDoNotMix(t *testing.T) {
 	}
 }
 
+// #region conversion
+
 // 同じ構造の型どうしは型変換が通る。止められるのは代入の取り違えで、
 // 明示の変換は止められない。
 func TestID_ConversionIsNotBlocked(t *testing.T) {
@@ -75,3 +77,5 @@ func TestID_ConversionIsNotBlocked(t *testing.T) {
 		t.Fatalf("got %s, want %s", booking, member)
 	}
 }
+
+// #endregion

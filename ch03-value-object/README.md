@@ -16,6 +16,9 @@
 - `internal/booking/domain/money.go` `Money`
 - `internal/booking/domain/time_slot.go` `TimeSlot`
 
+- `steps/` 本文で失敗を動かすためのコード。`steps/testdata/` はわざとコンパイルできないコードで、`go build ./...` の対象になりません
+- `out/` 本に載せた実行結果。`bash out/regen.sh` で作り直せます
+
 ## 動かし方
 
 ```bash
@@ -32,6 +35,8 @@ ok  	example.com/trainingbooking/internal/booking/domain
 ok  	example.com/trainingbooking/internal/identity/domain
 ok  	example.com/trainingbooking/internal/ids
 ```
+
+`steps/` の下のパッケージも同じように `ok` で出ます。
 
 タイムゾーンのテストだけを見るときは次を実行します。
 

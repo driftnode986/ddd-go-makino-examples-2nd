@@ -1,0 +1,10 @@
+ok  example.com/trainingbooking/internal/booking/domain 0.213s
+ok  example.com/trainingbooking/internal/identity/domain    0.184s
+ok  example.com/trainingbooking/internal/ids    0.184s
+ok  example.com/trainingbooking/steps   0.526s
+ok  example.com/trainingbooking/steps/naiveslot 0.186s
+ok  example.com/trainingbooking/steps/pitfalls  0.187s
+ok  example.com/trainingbooking/steps/registermember    0.186s
+ok  example.com/trainingbooking/steps/separateids   0.184s
+ok  example.com/trainingbooking/steps/stringargs    0.188s
+ok  example.com/trainingbooking/steps/stringemail   0.185s

@@ -47,30 +47,33 @@ func TestEmail_RejectsMalformed(t *testing.T) {
 	}
 }
 
-func TestEmail_NormalizesDomain(t *testing.T) {
-	a, err := domain.NewEmail("Taro@EXAMPLE.com")
+func mustEmail(t *testing.T, s string) domain.Email {
+	t.Helper()
+	e, err := domain.NewEmail(s)
 	if err != nil {
-		t.Fatalf("NewEmail: %v", err)
+		t.Fatalf("NewEmail(%q): %v", s, err)
 	}
-	// ローカル部の大文字と小文字は区別する（RFC 5321）
+	return e
+}
+
+// #region normalizes-domain
+
+func TestEmail_NormalizesDomain(t *testing.T) {
+	a := mustEmail(t, "Taro@EXAMPLE.com")
 	if a.String() != "Taro@example.com" {
 		t.Errorf("String = %q", a.String())
 	}
-	b, err := domain.NewEmail("Taro@example.com")
-	if err != nil {
-		t.Fatalf("NewEmail: %v", err)
+	// ドメイン部の大文字と小文字は同じものとして扱う
+	if !a.Equal(mustEmail(t, "Taro@example.com")) {
+		t.Error("ドメイン部の違いで等価性が変わった")
 	}
-	if !a.Equal(b) {
-		t.Error("ドメイン部の大文字と小文字で等価性が変わった")
-	}
-	c, err := domain.NewEmail("taro@example.com")
-	if err != nil {
-		t.Fatalf("NewEmail: %v", err)
-	}
-	if a.Equal(c) {
+	// ローカル部の大文字と小文字は別のものとして扱う
+	if a.Equal(mustEmail(t, "taro@example.com")) {
 		t.Error("ローカル部の違いは別のアドレスである")
 	}
 }
+
+// #endregion
 
 func TestZeroValues_AreDetected(t *testing.T) {
 	var e domain.Email
