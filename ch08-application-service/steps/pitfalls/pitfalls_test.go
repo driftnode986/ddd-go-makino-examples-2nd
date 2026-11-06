@@ -82,6 +82,51 @@ func TestRetryWithSameBookingLosesEvent(t *testing.T) {
 
 // #endregion
 
+// 計算と適用の間に明細を足すと、エラーなしで基準がずれる。
+func TestDiscountBaseIsNotChecked(t *testing.T) {
+	shoes := func() domain.BookingOption {
+		price, err := domain.NewMoney(300)
+		if err != nil {
+			t.Fatal(err)
+		}
+		o, err := domain.NewBookingOption("シューズ", price, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return o
+	}()
+	coupon, err := domain.NewCoupon(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := func(calculateFirst bool) int64 {
+		b := newBooking(t)
+		d, err := domain.CalculateDiscount(b.Total(), coupon)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := b.AddOption(shoes, clock); err != nil {
+			t.Fatal(err)
+		}
+		if !calculateFirst {
+			d, err = domain.CalculateDiscount(b.Total(), coupon)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := b.ApplyDiscount(d); err != nil {
+			t.Fatal(err)
+		}
+		return b.Total().Amount()
+	}
+	after, before := run(false), run(true)
+	t.Logf("明細→計算→適用: 合計 %d 円", after)
+	t.Logf("計算→明細→適用: 合計 %d 円", before)
+	if after != 3240 || before != 3300 {
+		t.Fatalf("after = %d, before = %d", after, before)
+	}
+}
+
 // #region plain-log
 
 func TestStandardHandlerIgnoresContext(t *testing.T) {

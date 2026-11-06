@@ -11,6 +11,7 @@ logs() { # 名前 パターン パッケージ
 logs two-paths TestTwoPathsDiffer ./steps/twopaths/
 logs separate-tx TestSeparateTxLeavesBookingWithoutEvent ./steps/pitfalls/
 logs retry-same TestRetryWithSameBookingLosesEvent ./steps/pitfalls/
+logs discount-base TestDiscountBaseIsNotChecked ./steps/pitfalls/
 logs plain-log TestStandardHandlerIgnoresContext ./steps/pitfalls/
 logs outer-read TestOuterContextReadsOutsideTheTx ./steps/pitfalls/
 logs bound-read TestBoundStoresReadInsideTheTx ./steps/pitfalls/
