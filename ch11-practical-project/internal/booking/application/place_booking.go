@@ -3,24 +3,26 @@ package application
 import (
 	"context"
 	"errors"
-	"time"
+	"fmt"
+	"slices"
 
 	"example.com/trainingbooking/internal/booking/domain"
 	"example.com/trainingbooking/internal/ids"
 )
 
-// LessonTerms は予約に使うレッスンの条件である。
-type LessonTerms struct {
-	Fee      domain.Money
-	Location *time.Location
+// OptionInput は選んだオプションと数量である。
+// 単価はレッスンの値を使うので、入力では受け取らない。
+type OptionInput struct {
+	Name     string
+	Quantity int
 }
 
 // PlaceBookingInput は予約の入力である。
+// 時間帯と料金はレッスンから取るので、入力では受け取らない。
 type PlaceBookingInput struct {
 	MemberID string
 	LessonID string
-	Start    time.Time
-	Duration time.Duration
+	Options  []OptionInput
 }
 
 // PlaceBookingOutput は予約の結果である。
@@ -31,11 +33,11 @@ type PlaceBookingOutput struct {
 
 // PlaceBooking は予約を受け付ける。
 type PlaceBooking struct {
-	repo   domain.BookingRepository
-	outbox OutboxWriter
-	tx     Transactor
-	clock  domain.Clock
-	terms  LessonTerms
+	repo    domain.BookingRepository
+	outbox  OutboxWriter
+	tx      Transactor
+	clock   domain.Clock
+	lessons LessonCatalog
 }
 
 // NewPlaceBooking は PlaceBooking を返す。
@@ -44,9 +46,9 @@ func NewPlaceBooking(
 	outbox OutboxWriter,
 	tx Transactor,
 	clock domain.Clock,
-	terms LessonTerms,
+	lessons LessonCatalog,
 ) *PlaceBooking {
-	return &PlaceBooking{repo, outbox, tx, clock, terms}
+	return &PlaceBooking{repo, outbox, tx, clock, lessons}
 }
 
 // Execute は予約を pending で保存し、同じ Tx で BookingPlaced を
@@ -54,7 +56,7 @@ func NewPlaceBooking(
 func (u *PlaceBooking) Execute(
 	ctx context.Context, in PlaceBookingInput,
 ) (PlaceBookingOutput, error) {
-	b, err := u.newBooking(in)
+	b, err := u.newBooking(ctx, in)
 	if err != nil {
 		return PlaceBookingOutput{}, err
 	}
@@ -73,10 +75,10 @@ func (u *PlaceBooking) Execute(
 	}, nil
 }
 
-// newBooking は入力と LessonTerms から集約を作る。
+// newBooking は入力とレッスンの条件から集約を作る。
 // 入力の誤りは KindInvalid にする。
 func (u *PlaceBooking) newBooking(
-	in PlaceBookingInput,
+	ctx context.Context, in PlaceBookingInput,
 ) (*domain.Booking, error) {
 	member, err := ids.ParseID[ids.MemberMarker](in.MemberID)
 	if err != nil {
@@ -86,19 +88,56 @@ func (u *PlaceBooking) newBooking(
 	if err != nil {
 		return nil, invalid("レッスン ID の形式が正しくありません", err)
 	}
+	terms, err := u.lessons.Terms(ctx, lesson)
+	if errors.Is(err, ErrLessonNotFound) {
+		return nil, invalid("指定のレッスンがありません", err)
+	}
+	if err != nil {
+		return nil, translate(err)
+	}
 	slot, err := domain.NewTimeSlot(
-		in.Start, in.Duration, u.terms.Location)
+		terms.Start, terms.Duration, terms.Location)
 	if err != nil {
 		return nil, invalid("予約できない時間帯です", err)
 	}
 	b, err := domain.NewBooking(
 		ids.NewID[ids.BookingMarker](),
-		member, lesson, slot, u.terms.Fee, u.clock)
+		member, lesson, slot, terms.Fee, u.clock)
 	if errors.Is(err, domain.ErrStartInPast) {
 		return nil, invalid("過去の時間帯は予約できません", err)
 	}
 	if err != nil {
 		return nil, translate(err)
 	}
+	err = addOptions(b, in.Options, terms.Options, u.clock)
+	if err != nil {
+		return nil, invalid("オプションの指定が正しくありません", err)
+	}
 	return b, nil
+}
+
+// addOptions は選んだオプションを、レッスンの単価で明細にする。
+func addOptions(
+	b *domain.Booking,
+	chosen []OptionInput,
+	offered []OfferedOption,
+	clk domain.Clock,
+) error {
+	for _, c := range chosen {
+		i := slices.IndexFunc(offered, func(o OfferedOption) bool {
+			return o.Name == c.Name
+		})
+		if i < 0 {
+			return fmt.Errorf("%w: %q", ErrUnknownOption, c.Name)
+		}
+		o, err := domain.NewBookingOption(
+			c.Name, offered[i].UnitPrice, c.Quantity)
+		if err != nil {
+			return err
+		}
+		if err := b.AddOption(o, clk); err != nil {
+			return err
+		}
+	}
+	return nil
 }

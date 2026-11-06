@@ -13,10 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"example.com/trainingbooking/internal/booking/application"
-	"example.com/trainingbooking/internal/booking/domain"
-	"example.com/trainingbooking/internal/booking/infrastructure/postgres"
+	bookingapp "example.com/trainingbooking/internal/booking/application"
+	"example.com/trainingbooking/internal/booking/infrastructure/acl"
+	bookingpg "example.com/trainingbooking/internal/booking/infrastructure/postgres"
 	"example.com/trainingbooking/internal/booking/presentation"
+	catalogapp "example.com/trainingbooking/internal/catalog/application"
+	catalogpg "example.com/trainingbooking/internal/catalog/infrastructure/postgres"
 	"example.com/trainingbooking/internal/platform/logging"
 	"example.com/trainingbooking/internal/platform/txn/pgtx"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,7 +29,6 @@ const (
 		"trainingbooking?sslmode=disable"
 	defaultAddr     = "localhost:8080"
 	shutdownTimeout = 10 * time.Second
-	lessonFeeYen    = 3000
 )
 
 // systemClock は実際の現在時刻を返す。
@@ -59,13 +60,9 @@ func run(logger *slog.Logger) error {
 		return fmt.Errorf("ping: %w", err)
 	}
 
-	router, err := newRouter(pool, logger)
-	if err != nil {
-		return err
-	}
 	server := &http.Server{
 		Addr:              cmp.Or(os.Getenv("ADDR"), defaultAddr),
-		Handler:           router,
+		Handler:           newRouter(pool, logger),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	return serve(ctx, server, logger)
@@ -73,35 +70,23 @@ func run(logger *slog.Logger) error {
 
 func newRouter(
 	pool *pgxpool.Pool, logger *slog.Logger,
-) (http.Handler, error) {
-	terms, err := lessonTerms()
-	if err != nil {
-		return nil, err
-	}
-	repo := postgres.NewBookingRepository(pool)
+) http.Handler {
+	repo := bookingpg.NewBookingRepository(pool)
 	tx := pgtx.NewTransactor(pool)
-	outbox := postgres.NewLoggingOutbox(logger)
+	outbox := bookingpg.NewLoggingOutbox(logger)
 	clock := systemClock{}
+	lessons := acl.NewLessonCatalog(
+		catalogapp.NewLessonReader(
+			catalogpg.NewLessonRepository(pool)),
+		time.FixedZone("JST", 9*60*60))
 	return presentation.NewRouter(presentation.Deps{
-		Place: application.NewPlaceBooking(
-			repo, outbox, tx, clock, terms),
-		Cancel: application.NewCancelBooking(
+		Place: bookingapp.NewPlaceBooking(
+			repo, outbox, tx, clock, lessons),
+		Cancel: bookingapp.NewCancelBooking(
 			repo, outbox, tx, clock),
-		Queries: postgres.NewBookingQueries(pool),
+		Queries: bookingpg.NewBookingQueries(pool),
 		Logger:  logger,
-	}), nil
-}
-
-// lessonTerms はレッスンの料金とタイムゾーンを固定で返す。
-func lessonTerms() (application.LessonTerms, error) {
-	fee, err := domain.NewMoney(lessonFeeYen)
-	if err != nil {
-		return application.LessonTerms{}, err
-	}
-	return application.LessonTerms{
-		Fee:      fee,
-		Location: time.FixedZone("JST", 9*60*60),
-	}, nil
+	})
 }
 
 // serve は ctx が終わるまで受け付け、処理中のリクエストを待って止まる。
