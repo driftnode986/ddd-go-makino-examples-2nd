@@ -212,6 +212,10 @@ linters:
           - staticcheck
         path: /steps/pitfalls/
         text: SA9005
+      - linters:
+          - staticcheck
+        path: /steps/pitfalls/pitfalls_integration_test\.go
+        text: QF1009
       # import の行は折り返せません。
       - linters:
           - lll

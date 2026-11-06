@@ -20,6 +20,8 @@ func NewTransactor(pool *pgxpool.Pool) *Transactor {
 	return &Transactor{pool: pool}
 }
 
+// #region do
+
 // Do は fn を1つの Tx で実行する。fn がエラーを返せば戻す。
 // fn は渡された ctx を使う。入れ子の Do は外側の Tx に参加する。
 func (t *Transactor) Do(
@@ -34,8 +36,14 @@ func (t *Transactor) Do(
 		})
 }
 
+// #endregion
+
+// #region from
+
 // From は ctx の Tx を返す。
 func From(ctx context.Context) (pgx.Tx, bool) {
 	tx, ok := ctx.Value(key{}).(pgx.Tx)
 	return tx, ok
 }
+
+// #endregion

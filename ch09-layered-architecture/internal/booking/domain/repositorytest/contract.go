@@ -76,6 +76,7 @@ func Run(
 		{"無い予約の FindByID は ErrNotFound", testFindMissing},
 		{"無い予約の Save は ErrNotFound", testSaveMissing},
 		{"2者の競合は後者が ErrVersionConflict", testConflict},
+		{"同時の Save は1者だけ成功する", testConcurrentSave},
 		{"状態を2回変更しても Save できる", testTwoChanges},
 		{"変更なしの Save は成功する", testNoChangeSave},
 		{"同じオブジェクトの2度目の Save は競合", testSaveTwice},
@@ -205,7 +206,9 @@ func wantErr(t *testing.T, got, want error) {
 	}
 }
 
-func testRoundTrip(t *testing.T, r domain.BookingRepository) {
+// fullBooking は明細3件と割引を持つ確定済みの予約を作る。
+func fullBooking(t *testing.T) *domain.Booking {
+	t.Helper()
 	b := newBooking(t)
 	for _, o := range []domain.BookingOption{
 		option(t, "シューズ", 500, 2),
@@ -222,6 +225,13 @@ func testRoundTrip(t *testing.T, r domain.BookingRepository) {
 	if err := b.Confirm(); err != nil {
 		t.Fatalf("Confirm: %v", err)
 	}
+	return b
+}
+
+// #region round-trip
+
+func testRoundTrip(t *testing.T, r domain.BookingRepository) {
+	b := fullBooking(t)
 	mustAdd(t, r, b)
 
 	got := mustFind(t, r, b.ID())
@@ -241,6 +251,8 @@ func testRoundTrip(t *testing.T, r domain.BookingRepository) {
 		t.Errorf("読み出しでイベントが増えた: %v", events)
 	}
 }
+
+// #endregion
 
 func testRoundTripNoOptions(
 	t *testing.T, r domain.BookingRepository,
@@ -291,6 +303,8 @@ func testSaveMissing(t *testing.T, r domain.BookingRepository) {
 	wantErr(t, err, domain.ErrNotFound)
 }
 
+// #region conflict
+
 func testConflict(t *testing.T, r domain.BookingRepository) {
 	b := newBooking(t)
 	mustAdd(t, r, b)
@@ -319,6 +333,64 @@ func testConflict(t *testing.T, r domain.BookingRepository) {
 	}
 }
 
+// #endregion
+
+// #region concurrent-save
+
+// 同じ版を読んだ2者が同時に保存すると、1者だけが成功する。
+func testConcurrentSave(
+	t *testing.T, r domain.BookingRepository,
+) {
+	const rounds = 20
+	for round := range rounds {
+		b := bookingAt(t, ids.NewID[ids.MemberMarker](), 1, 10)
+		mustAdd(t, r, b)
+		first := mustFind(t, r, b.ID())
+		second := mustFind(t, r, b.ID())
+		if err := first.Confirm(); err != nil {
+			t.Fatalf("Confirm: %v", err)
+		}
+		if err := second.Reject(); err != nil {
+			t.Fatalf("Reject: %v", err)
+		}
+		errs := make([]error, 2)
+		var done sync.WaitGroup
+		start := make(chan struct{})
+		for i, loaded := range []*domain.Booking{first, second} {
+			done.Go(func() {
+				<-start
+				errs[i] = r.Save(t.Context(), loaded)
+			})
+		}
+		close(start)
+		done.Wait()
+		checkOneWins(t, round, errs)
+	}
+}
+
+// #endregion
+
+func checkOneWins(t *testing.T, round int, errs []error) {
+	t.Helper()
+	ok, conflict := 0, 0
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			ok++
+		case errors.Is(err, domain.ErrVersionConflict):
+			conflict++
+		default:
+			t.Fatalf("round %d: 想定外のエラー: %v", round, err)
+		}
+	}
+	if ok != 1 || conflict != 1 {
+		t.Fatalf("round %d: 成功 %d 件, 競合 %d 件",
+			round, ok, conflict)
+	}
+}
+
+// #region two-changes
+
 func testTwoChanges(t *testing.T, r domain.BookingRepository) {
 	b := newBooking(t)
 	mustAdd(t, r, b)
@@ -340,6 +412,10 @@ func testTwoChanges(t *testing.T, r domain.BookingRepository) {
 	}
 }
 
+// #endregion
+
+// #region no-change
+
 func testNoChangeSave(t *testing.T, r domain.BookingRepository) {
 	b := newBooking(t)
 	mustAdd(t, r, b)
@@ -351,6 +427,10 @@ func testNoChangeSave(t *testing.T, r domain.BookingRepository) {
 	}
 }
 
+// #endregion
+
+// #region save-twice
+
 func testSaveTwice(t *testing.T, r domain.BookingRepository) {
 	b := newBooking(t)
 	mustAdd(t, r, b)
@@ -361,6 +441,8 @@ func testSaveTwice(t *testing.T, r domain.BookingRepository) {
 	wantErr(t, err, domain.ErrVersionConflict)
 	mustSave(t, r, mustFind(t, r, b.ID()))
 }
+
+// #endregion
 
 func testNoSharing(t *testing.T, r domain.BookingRepository) {
 	b := newBooking(t)
@@ -663,6 +745,8 @@ func checkPair(s domain.BookingState) string {
 	return ""
 }
 
+// #region add-without-tx
+
 func testAddWithoutTransaction(
 	t *testing.T, r domain.BookingRepository, _ Transactor,
 ) {
@@ -671,6 +755,8 @@ func testAddWithoutTransaction(
 	_, err := r.FindByID(t.Context(), b.ID())
 	wantErr(t, err, domain.ErrNotFound)
 }
+
+// #endregion
 
 func testSaveWithoutTransaction(
 	t *testing.T, r domain.BookingRepository, tx Transactor,
@@ -691,6 +777,8 @@ func testSaveWithoutTransaction(
 	}
 }
 
+// #region outer-ctx
+
 // 外側の ctx を渡す誤りで別にコミットされないことを確かめる。
 func testOuterContextInDo(
 	t *testing.T, r domain.BookingRepository, tx Transactor,
@@ -704,6 +792,8 @@ func testOuterContextInDo(
 	_, err = r.FindByID(outer, b.ID())
 	wantErr(t, err, domain.ErrNotFound)
 }
+
+// #endregion
 
 func testZeroWithoutTx(
 	t *testing.T, r domain.BookingRepository, _ Transactor,
@@ -763,6 +853,26 @@ func testFindInTx(
 	}
 }
 
+// addAndConfirm は added を保存し、id の予約を確定して保存する。
+func addAndConfirm(
+	ctx context.Context, r domain.BookingRepository,
+	added *domain.Booking, id ids.BookingID,
+) error {
+	if err := r.Add(ctx, added); err != nil {
+		return err
+	}
+	loaded, err := r.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := loaded.Confirm(); err != nil {
+		return err
+	}
+	return r.Save(ctx, loaded)
+}
+
+// #region rollback
+
 func testRollback(
 	t *testing.T, r domain.BookingRepository, tx Transactor,
 ) {
@@ -773,17 +883,8 @@ func testRollback(
 
 	boom := errors.New("boom")
 	err := tx.Do(t.Context(), func(ctx context.Context) error {
-		if err := r.Add(ctx, added); err != nil {
-			return err
-		}
-		loaded, err := r.FindByID(ctx, saved.ID())
+		err := addAndConfirm(ctx, r, added, saved.ID())
 		if err != nil {
-			return err
-		}
-		if err := loaded.Confirm(); err != nil {
-			return err
-		}
-		if err := r.Save(ctx, loaded); err != nil {
 			return err
 		}
 		return boom
@@ -794,9 +895,12 @@ func testRollback(
 	wantErr(t, err, domain.ErrNotFound)
 	got := mustFind(t, r, saved.ID())
 	if got.Status() != domain.StatusPending || got.Version() != 0 {
-		t.Errorf("Save が残った: %s v%d", got.Status(), got.Version())
+		t.Errorf("Save が残った: %s v%d",
+			got.Status(), got.Version())
 	}
 }
+
+// #endregion
 
 func testNestedDo(
 	t *testing.T, r domain.BookingRepository, tx Transactor,
@@ -838,12 +942,16 @@ func testPanicRollsBack(
 	wantErr(t, err, domain.ErrNotFound)
 }
 
+// #region zero
+
 func testZeroBooking(t *testing.T, r domain.BookingRepository) {
 	wantErr(t, r.Add(t.Context(), &domain.Booking{}),
 		domain.ErrInvalidBooking)
 	wantErr(t, r.Save(t.Context(), &domain.Booking{}),
 		domain.ErrInvalidBooking)
 }
+
+// #endregion
 
 func testCanceledContext(t *testing.T, r domain.BookingRepository) {
 	b := newBooking(t)

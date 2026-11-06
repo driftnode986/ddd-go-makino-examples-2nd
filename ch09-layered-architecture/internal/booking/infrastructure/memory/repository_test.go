@@ -9,6 +9,8 @@ import (
 	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
+// #region contract
+
 func TestBookingRepository_Contract(t *testing.T) {
 	repositorytest.Run(t,
 		func(*testing.T) (
@@ -18,3 +20,5 @@ func TestBookingRepository_Contract(t *testing.T) {
 				memtx.NewTransactor()
 		})
 }
+
+// #endregion

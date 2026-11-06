@@ -96,8 +96,12 @@ func (b *Booking) Status() Status { return b.status }
 
 // #endregion
 
+// #region version-getter
+
 // Version は読み込んだときの版を返す。
 func (b *Booking) Version() int { return b.version }
+
+// #endregion
 
 // #region options-getter
 

@@ -1,0 +1,4 @@
+A: <nil>
+B: booking time slot overlaps: ERROR: conflicting key value violates
+exclusion constraint "bookings_no_overlap" (SQLSTATE 23P01)
+B は ErrOverlap か: true

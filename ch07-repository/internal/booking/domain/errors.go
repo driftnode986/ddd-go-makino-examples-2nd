@@ -2,12 +2,16 @@ package domain
 
 import "errors"
 
+// #region repository-errors
+
 // リポジトリが返すエラーである。実装の違いをここで吸収する。
 var (
 	ErrNotFound        = errors.New("booking not found")
 	ErrDuplicate       = errors.New("booking already exists")
 	ErrVersionConflict = errors.New("booking version conflict")
 )
+
+// #endregion
 
 // 集約の操作が返すエラーである。
 var (

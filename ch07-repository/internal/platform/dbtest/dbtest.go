@@ -24,6 +24,8 @@ const image = "postgres:18-alpine"
 // 停止は testcontainers のリーパーに任せる。
 var container = sync.OnceValues(startContainer)
 
+// #region start
+
 func startContainer() (*postgres.PostgresContainer, error) {
 	return postgres.Run(context.Background(), image,
 		postgres.WithDatabase("postgres"),
@@ -32,6 +34,10 @@ func startContainer() (*postgres.PostgresContainer, error) {
 		postgres.BasicWaitStrategies(),
 	)
 }
+
+// #endregion
+
+// #region new
 
 // New は新しい空のデータベースを作り、migrations を流す。
 // テストどうしはデータベースで分離される。
@@ -65,6 +71,8 @@ func New(t *testing.T, migrations ...fs.FS) *pgxpool.Pool {
 	}
 	return pool
 }
+
+// #endregion
 
 func createDatabase(t *testing.T, admin, name string) {
 	t.Helper()

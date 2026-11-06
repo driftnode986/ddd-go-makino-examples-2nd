@@ -13,12 +13,16 @@ import (
 	"example.com/trainingbooking/internal/platform/txn/memtx"
 )
 
+// #region type
+
 // BookingRepository は集約の中身をコピーで保持する。
 // 呼び出し側とポインタを共有しない。
 type BookingRepository struct {
 	mu     sync.RWMutex
 	states map[ids.BookingID]domain.BookingState
 }
+
+// #endregion
 
 // NewBookingRepository は空のリポジトリを返す。
 func NewBookingRepository() *BookingRepository {
@@ -52,6 +56,8 @@ func (r *BookingRepository) Add(
 	return nil
 }
 
+// #region save
+
 // Save は読み込んだときの版で判定し、ctx の Tx の中で更新する。
 func (r *BookingRepository) Save(
 	ctx context.Context, b *domain.Booking,
@@ -82,6 +88,8 @@ func (r *BookingRepository) Save(
 	})
 	return nil
 }
+
+// #endregion
 
 // FindByID は保存された中身から集約を組み立てる。
 func (r *BookingRepository) FindByID(

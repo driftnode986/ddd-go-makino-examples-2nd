@@ -1,0 +1,3 @@
+確定だけ: <nil>
+確定してキャンセル: booking version conflict
+変更なし: booking version conflict

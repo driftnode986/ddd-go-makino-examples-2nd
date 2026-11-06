@@ -6,5 +6,9 @@ package txn
 
 import "errors"
 
+// #region no-transaction
+
 // ErrNoTransaction は Tx の無い ctx で書き込もうとしたことを表す。
 var ErrNoTransaction = errors.New("no transaction in context")
+
+// #endregion

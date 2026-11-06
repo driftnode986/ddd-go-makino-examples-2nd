@@ -6,6 +6,8 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
+// #region repository
+
 // BookingRepository は Booking 集約を保存し、読み出す。
 // Add と Save は ctx の Tx に参加する。自分では Tx を開かない。
 // ctx に Tx が無ければ実装はエラー（txn.ErrNoTransaction）を返す。
@@ -23,3 +25,5 @@ type BookingRepository interface {
 		ctx context.Context, id ids.BookingID,
 	) (*Booking, error)
 }
+
+// #endregion

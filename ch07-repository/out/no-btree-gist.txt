@@ -1,0 +1,2 @@
+ERROR: data type uuid has no default operator class for access
+method "gist" (SQLSTATE 42704)

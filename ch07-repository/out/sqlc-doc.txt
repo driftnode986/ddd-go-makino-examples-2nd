@@ -1,0 +1,2 @@
+func (q *Queries) UpdateBooking(ctx context.Context, arg
+UpdateBookingParams) (int64, error)

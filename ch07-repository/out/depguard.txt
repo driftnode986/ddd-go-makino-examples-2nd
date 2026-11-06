@@ -1,0 +1,4 @@
+ch07-repository/internal/booking/domain/zz_import.go:3:8: import
+'example.com/trainingbooking/internal/booking/infrastructure/postgres
+/sqlcgen' is not allowed from list 'domain-layer': domain
+から外側のレイヤーを import できません (depguard)

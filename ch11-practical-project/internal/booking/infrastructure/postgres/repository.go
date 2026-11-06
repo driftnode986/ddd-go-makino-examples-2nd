@@ -36,6 +36,8 @@ func NewBookingRepository(pool *pgxpool.Pool) *BookingRepository {
 	return &BookingRepository{pool: pool}
 }
 
+// #region add
+
 // Add は親と明細を ctx の Tx の中で保存する。
 //
 // 重なる予約を同時に書くと、排他制約の検査どうしが互いの Tx を
@@ -51,6 +53,10 @@ func (r *BookingRepository) Add(
 	return translate(insertBooking(ctx, q, s))
 }
 
+// #endregion
+
+// #region save
+
 // Save は読み込んだときの版で判定し、ctx の Tx の中で更新する。
 // b の版は変えない。状態の更新も排他制約の検査を走らせるので、
 // Add と同じロックを取る。
@@ -63,6 +69,10 @@ func (r *BookingRepository) Save(
 	}
 	return translate(updateBooking(ctx, q, s))
 }
+
+// #endregion
+
+// #region insert-booking
 
 func insertBooking(
 	ctx context.Context, q *sqlcgen.Queries, s domain.BookingState,
@@ -87,6 +97,10 @@ func insertBooking(
 	}
 	return insertOptions(ctx, q, s)
 }
+
+// #endregion
+
+// #region update-booking
 
 func updateBooking(
 	ctx context.Context, q *sqlcgen.Queries, s domain.BookingState,
@@ -115,6 +129,10 @@ func updateBooking(
 	return insertOptions(ctx, q, s)
 }
 
+// #endregion
+
+// #region find
+
 // FindByID は親と明細を1つの SQL で読み、集約を組み立てる。
 func (r *BookingRepository) FindByID(
 	ctx context.Context, id ids.BookingID,
@@ -134,6 +152,8 @@ func (r *BookingRepository) FindByID(
 	return domain.ReconstructBooking(s)
 }
 
+// #endregion
+
 // queriesFor は ctx に Tx があれば Tx で、無ければプールで実行する。
 func queriesFor(
 	ctx context.Context, pool *pgxpool.Pool,
@@ -143,6 +163,8 @@ func queriesFor(
 	}
 	return sqlcgen.New(pool)
 }
+
+// #region prepare
 
 // prepare は保存できる集約かと ctx の Tx を確かめて、
 // 中身のコピーと Tx に結び付いたクエリを返す。
@@ -163,6 +185,8 @@ func prepare(
 	return s, sqlcgen.New(tx), nil
 }
 
+// #endregion
+
 func insertOptions(
 	ctx context.Context, q *sqlcgen.Queries, s domain.BookingState,
 ) error {
@@ -182,6 +206,8 @@ func insertOptions(
 	return nil
 }
 
+// #region missing-or-conflict
+
 // missingOrConflict は更新が0行だった理由を判定する。
 func missingOrConflict(
 	ctx context.Context, q *sqlcgen.Queries, id ids.BookingID,
@@ -195,6 +221,8 @@ func missingOrConflict(
 	}
 	return fmt.Errorf("%w: %s", domain.ErrVersionConflict, id)
 }
+
+// #endregion
 
 func toState(
 	id ids.BookingID, rows []sqlcgen.FindBookingWithOptionsRow,
@@ -236,6 +264,8 @@ func toState(
 	return s, nil
 }
 
+// #region translate
+
 // translate は PostgreSQL のエラーをドメインのエラーに変換する。
 func translate(err error) error {
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
@@ -250,3 +280,5 @@ func translate(err error) error {
 	}
 	return err
 }
+
+// #endregion

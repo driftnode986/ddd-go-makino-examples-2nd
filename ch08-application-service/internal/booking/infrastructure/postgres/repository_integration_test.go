@@ -23,6 +23,8 @@ func newPool(t *testing.T) *pgxpool.Pool {
 	return dbtest.New(t, postgres.Migrations)
 }
 
+// #region contract
+
 func TestBookingRepository_Contract(t *testing.T) {
 	repositorytest.Run(t,
 		func(t *testing.T) (
@@ -33,6 +35,8 @@ func TestBookingRepository_Contract(t *testing.T) {
 				pgtx.NewTransactor(pool)
 		})
 }
+
+// #endregion
 
 // btree_gist で uuid と時間帯の排他制約が張れていることを、
 // リポジトリを通さず SQL で確かめる。

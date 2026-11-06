@@ -13,6 +13,7 @@
 
 - 追加: `internal/booking/domain/repository.go`、`internal/booking/domain/repositorytest/`（契約テスト）、`internal/booking/infrastructure/`、`internal/platform/txn/`、`internal/platform/dbtest/`、`compose.yaml`、`Makefile`、`sqlc.yaml`
 - 変更: `booking.go` と `booking_state.go` に版を追加、`errors.go` にリポジトリのエラーを追加
+- 本文で失敗を動かすコードは `steps/` に、実行結果は `out/` にあります。`bash out/regen.sh` で作り直せます（Docker が要ります）
 
 ## 動かし方
 

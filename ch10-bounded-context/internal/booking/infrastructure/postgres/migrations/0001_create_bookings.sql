@@ -1,6 +1,7 @@
 -- 会員と時間帯の排他制約で uuid を gist に載せるために使う。
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
+-- #region bookings
 CREATE TABLE bookings (
     id           uuid PRIMARY KEY,
     member_id    uuid NOT NULL,
@@ -13,14 +14,18 @@ CREATE TABLE bookings (
         ('pending', 'confirmed', 'rejected', 'cancelled')),
     version      bigint NOT NULL CHECK (version >= 0),
     CHECK (starts_at < ends_at),
+-- #region no-overlap
     -- 同じ会員の有効な予約は時間帯を重ねられない。
     -- tstzrange の既定は半開区間なので、接するだけなら通る。
     CONSTRAINT bookings_no_overlap EXCLUDE USING gist (
         member_id WITH =,
         tstzrange(starts_at, ends_at) WITH &&
     ) WHERE (status IN ('pending', 'confirmed'))
+-- #endregion
 );
+-- #endregion
 
+-- #region options
 CREATE TABLE booking_options (
     booking_id     uuid NOT NULL REFERENCES bookings (id),
     position       integer NOT NULL,
@@ -30,3 +35,4 @@ CREATE TABLE booking_options (
     PRIMARY KEY (booking_id, position),
     UNIQUE (booking_id, name)
 );
+-- #endregion

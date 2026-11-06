@@ -1,0 +1,2 @@
+保存した明細: 6 件
+読み戻し: invalid booking: too many booking options: 6
