@@ -26,6 +26,11 @@ services:
           migrations/0003_create_outbox.sql"
         target: /docker-entrypoint-initdb.d/0003_create_outbox.sql
         read_only: true
+      - type: bind
+        source: "./internal/identity/infrastructure/postgres/\
+          migrations/0004_create_members.sql"
+        target: /docker-entrypoint-initdb.d/0004_create_members.sql
+        read_only: true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dev -d trainingbooking"]
       interval: 5s

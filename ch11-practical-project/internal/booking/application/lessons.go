@@ -9,10 +9,11 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
-// LessonCatalog が返すエラーと、選べないオプションのエラーである。
+// 他のコンテキストの情報に基づいて入力を拒否するエラーである。
 var (
 	ErrLessonNotFound = errors.New("lesson not found")
 	ErrUnknownOption  = errors.New("option is not offered")
+	ErrMemberNotFound = errors.New("member not found")
 )
 
 // OfferedOption はレッスンで選べるオプションと単価である。
@@ -36,4 +37,9 @@ type LessonCatalog interface {
 	// Terms はレッスンの条件を返す。無ければ ErrLessonNotFound を
 	// 返す。
 	Terms(ctx context.Context, id ids.LessonID) (LessonTerms, error)
+}
+
+// MemberDirectory は会員の有無を答える。
+type MemberDirectory interface {
+	Exists(ctx context.Context, id ids.MemberID) (bool, error)
 }

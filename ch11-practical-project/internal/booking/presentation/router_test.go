@@ -544,6 +544,15 @@ func (l fixedLessons) Terms(
 	return l.terms, nil
 }
 
+// everyMember はどの会員も存在すると答える。
+type everyMember struct{}
+
+func (everyMember) Exists(
+	context.Context, ids.MemberID,
+) (bool, error) {
+	return true, nil
+}
+
 // 本物のユースケースと in-memory で HTTP から通して確かめる。
 func TestRouter_WithUseCases(t *testing.T) {
 	repo := memory.NewBookingRepository()
@@ -570,7 +579,7 @@ func TestRouter_WithUseCases(t *testing.T) {
 				Options: []application.OfferedOption{
 					{Name: "シューズ", UnitPrice: price},
 				},
-			}}),
+			}}, everyMember{}),
 		Cancel: application.NewCancelBooking(
 			repo, outbox, tx, clock),
 		Queries: memory.NewBookingQueries(repo),

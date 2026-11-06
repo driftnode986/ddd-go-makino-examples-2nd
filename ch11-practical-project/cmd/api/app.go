@@ -13,6 +13,8 @@ import (
 	catalogapp "example.com/trainingbooking/internal/catalog/application"
 	catalogcontract "example.com/trainingbooking/internal/catalog/contract"
 	catalogpg "example.com/trainingbooking/internal/catalog/infrastructure/postgres"
+	identityapp "example.com/trainingbooking/internal/identity/application"
+	identitypg "example.com/trainingbooking/internal/identity/infrastructure/postgres"
 	"example.com/trainingbooking/internal/platform/outbox"
 	"example.com/trainingbooking/internal/platform/txn/pgtx"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -60,6 +62,8 @@ func newApp(cfg appConfig) *app {
 	catalog := acl.NewLessonCatalog(
 		catalogapp.NewLessonReader(lessons),
 		time.FixedZone("JST", 9*60*60))
+	members := acl.NewMemberDirectory(identityapp.NewMemberReader(
+		identitypg.NewMemberRepository(cfg.pool)))
 
 	var relayStore outbox.RelayStore = store
 	if cfg.relayStore != nil {
@@ -78,7 +82,7 @@ func newApp(cfg appConfig) *app {
 
 	router := presentation.NewRouter(presentation.Deps{
 		Place: bookingapp.NewPlaceBooking(
-			bookings, writer, tx, cfg.clock, catalog),
+			bookings, writer, tx, cfg.clock, catalog, members),
 		Cancel: bookingapp.NewCancelBooking(
 			bookings, writer, tx, cfg.clock),
 		Queries: bookingpg.NewBookingQueries(cfg.pool),

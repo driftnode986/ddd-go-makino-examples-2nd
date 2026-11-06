@@ -19,7 +19,8 @@ func newPlace(
 ) *application.PlaceBooking {
 	t.Helper()
 	return application.NewPlaceBooking(
-		d.repo, d.outbox, d.tx, fixedClock{now}, lessons(t))
+		d.repo, d.outbox, d.tx, fixedClock{now},
+		lessons(t), stubMembers{})
 }
 
 func TestPlaceBooking_SavesPendingAndRecordsEvent(t *testing.T) {
@@ -110,7 +111,7 @@ func TestPlaceBooking_InvalidLessonTermsIsKindInvalid(t *testing.T) {
 			c.change(&lesson.terms)
 			d := newMemoryDeps()
 			place := application.NewPlaceBooking(d.repo, d.outbox,
-				d.tx, fixedClock{now}, lesson)
+				d.tx, fixedClock{now}, lesson, stubMembers{})
 			_, err := place.Execute(t.Context(), placeInput())
 			wantKind(t, err, application.KindInvalid)
 			if !errors.Is(err, c.cause) {
@@ -127,7 +128,8 @@ func TestPlaceBooking_UnknownLessonIsKindInvalid(t *testing.T) {
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(d.repo, d.outbox, d.tx,
 		fixedClock{now},
-		stubLessons{err: application.ErrLessonNotFound})
+		stubLessons{err: application.ErrLessonNotFound},
+		stubMembers{})
 	_, err := place.Execute(t.Context(), placeInput())
 	wantKind(t, err, application.KindInvalid)
 	if !errors.Is(err, application.ErrLessonNotFound) {
@@ -139,7 +141,7 @@ func TestPlaceBooking_CatalogFailureIsKindInternal(t *testing.T) {
 	boom := errors.New("catalog")
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(d.repo, d.outbox, d.tx,
-		fixedClock{now}, stubLessons{err: boom})
+		fixedClock{now}, stubLessons{err: boom}, stubMembers{})
 	_, err := place.Execute(t.Context(), placeInput())
 	wantKind(t, err, application.KindInternal)
 	if !errors.Is(err, boom) {
@@ -156,7 +158,8 @@ func TestPlaceBooking_UsesLocationFromTerms(t *testing.T) {
 	lesson.terms.Start = time.Date(
 		2030, time.June, 1, 10, 0, 0, 0, time.UTC)
 	place := application.NewPlaceBooking(
-		d.repo, d.outbox, d.tx, fixedClock{now}, lesson)
+		d.repo, d.outbox, d.tx, fixedClock{now},
+		lesson, stubMembers{})
 	_, err := place.Execute(t.Context(), placeInput())
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -164,7 +167,8 @@ func TestPlaceBooking_UsesLocationFromTerms(t *testing.T) {
 	lesson.terms.Start = time.Date(
 		2030, time.June, 1, 13, 0, 0, 0, time.UTC)
 	place = application.NewPlaceBooking(
-		d.repo, d.outbox, d.tx, fixedClock{now}, lesson)
+		d.repo, d.outbox, d.tx, fixedClock{now},
+		lesson, stubMembers{})
 	_, err = place.Execute(t.Context(), placeInput())
 	if !errors.Is(err, domain.ErrOutOfBusinessHours) {
 		t.Fatalf("err = %v", err)
@@ -240,7 +244,7 @@ func TestPlaceBooking_InvalidOptionsAreKindInvalid(t *testing.T) {
 			}
 			d := newMemoryDeps()
 			place := application.NewPlaceBooking(d.repo, d.outbox,
-				d.tx, fixedClock{now}, lesson)
+				d.tx, fixedClock{now}, lesson, stubMembers{})
 			in := placeInput()
 			in.Options = c.options
 			_, err := place.Execute(t.Context(), in)
@@ -257,7 +261,7 @@ func TestPlaceBooking_OptionsTooLateIsKindInvalid(t *testing.T) {
 	d := newMemoryDeps()
 	late := lessonStart.Add(-23 * time.Hour)
 	place := application.NewPlaceBooking(d.repo, d.outbox, d.tx,
-		fixedClock{late}, lessons(t))
+		fixedClock{late}, lessons(t), stubMembers{})
 	in := placeInput()
 	in.Options = []application.OptionInput{
 		{Name: "シューズ", Quantity: 1},
@@ -271,6 +275,32 @@ func TestPlaceBooking_OptionsTooLateIsKindInvalid(t *testing.T) {
 	in.Options = nil
 	if _, err := place.Execute(t.Context(), in); err != nil {
 		t.Errorf("オプションなし: %v", err)
+	}
+}
+
+func TestPlaceBooking_UnknownMemberIsKindInvalid(t *testing.T) {
+	d := newMemoryDeps()
+	place := application.NewPlaceBooking(d.repo, d.outbox, d.tx,
+		fixedClock{now}, lessons(t), stubMembers{missing: true})
+	_, err := place.Execute(t.Context(), placeInput())
+	wantKind(t, err, application.KindInvalid)
+	if !errors.Is(err, application.ErrMemberNotFound) {
+		t.Errorf("err = %v", err)
+	}
+	if len(d.outbox.Events()) != 0 {
+		t.Errorf("events = %v", d.outbox.Events())
+	}
+}
+
+func TestPlaceBooking_DirectoryFailureIsKindInternal(t *testing.T) {
+	boom := errors.New("identity")
+	d := newMemoryDeps()
+	place := application.NewPlaceBooking(d.repo, d.outbox, d.tx,
+		fixedClock{now}, lessons(t), stubMembers{err: boom})
+	_, err := place.Execute(t.Context(), placeInput())
+	wantKind(t, err, application.KindInternal)
+	if !errors.Is(err, boom) {
+		t.Errorf("err = %v", err)
 	}
 }
 
@@ -297,7 +327,7 @@ func TestPlaceBooking_RepositoryFailureKeepsCause(t *testing.T) {
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(
 		failingRepository{d.repo, fmt.Errorf("add: %w", boom)},
-		d.outbox, d.tx, fixedClock{now}, lessons(t))
+		d.outbox, d.tx, fixedClock{now}, lessons(t), stubMembers{})
 
 	_, err := place.Execute(t.Context(), placeInput())
 	got := wantKind(t, err, application.KindInternal)
@@ -315,7 +345,7 @@ func TestPlaceBooking_NoTransactionIsKindInternal(t *testing.T) {
 	d := newMemoryDeps()
 	place := application.NewPlaceBooking(
 		failingRepository{d.repo, txn.ErrNoTransaction},
-		d.outbox, d.tx, fixedClock{now}, lessons(t))
+		d.outbox, d.tx, fixedClock{now}, lessons(t), stubMembers{})
 	_, err := place.Execute(t.Context(), placeInput())
 	wantKind(t, err, application.KindInternal)
 }
@@ -336,7 +366,7 @@ func TestPlaceBooking_OutboxFailureRollsBack(t *testing.T) {
 	boom := errors.New("outbox")
 	place := application.NewPlaceBooking(
 		d.repo, failingOutbox{boom}, d.tx,
-		fixedClock{now}, lessons(t))
+		fixedClock{now}, lessons(t), stubMembers{})
 	in := placeInput()
 	_, err := place.Execute(t.Context(), in)
 	wantKind(t, err, application.KindInternal)

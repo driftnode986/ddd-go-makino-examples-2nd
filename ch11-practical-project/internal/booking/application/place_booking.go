@@ -38,6 +38,7 @@ type PlaceBooking struct {
 	tx      Transactor
 	clock   domain.Clock
 	lessons LessonCatalog
+	members MemberDirectory
 }
 
 // NewPlaceBooking は PlaceBooking を返す。
@@ -47,8 +48,9 @@ func NewPlaceBooking(
 	tx Transactor,
 	clock domain.Clock,
 	lessons LessonCatalog,
+	members MemberDirectory,
 ) *PlaceBooking {
-	return &PlaceBooking{repo, outbox, tx, clock, lessons}
+	return &PlaceBooking{repo, outbox, tx, clock, lessons, members}
 }
 
 // Execute は予約を pending で保存し、同じ Tx で BookingPlaced を
@@ -87,6 +89,13 @@ func (u *PlaceBooking) newBooking(
 	lesson, err := ids.ParseID[ids.LessonMarker](in.LessonID)
 	if err != nil {
 		return nil, invalid("レッスン ID の形式が正しくありません", err)
+	}
+	exists, err := u.members.Exists(ctx, member)
+	if err != nil {
+		return nil, translate(err)
+	}
+	if !exists {
+		return nil, invalid("指定の会員がありません", ErrMemberNotFound)
 	}
 	terms, err := u.lessons.Terms(ctx, lesson)
 	if errors.Is(err, ErrLessonNotFound) {

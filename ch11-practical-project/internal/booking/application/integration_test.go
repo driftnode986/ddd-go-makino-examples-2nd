@@ -36,7 +36,7 @@ func TestPlaceBooking_RollsBackWhenOutboxFails(t *testing.T) {
 	in := placeInput()
 
 	failing := application.NewPlaceBooking(repo, failingOutbox{boom},
-		tx, fixedClock{now}, lessons(t))
+		tx, fixedClock{now}, lessons(t), stubMembers{})
 	_, err := failing.Execute(t.Context(), in)
 	wantKind(t, err, application.KindInternal)
 	if !errors.Is(err, boom) {
@@ -64,7 +64,7 @@ func TestPlaceBooking_ConcurrentOverlapOnPostgres(t *testing.T) {
 		postgres.NewBookingRepository(pool),
 		discardOutbox{},
 		pgtx.NewTransactor(pool),
-		fixedClock{now}, lessons(t))
+		fixedClock{now}, lessons(t), stubMembers{})
 	in := placeInput()
 
 	errs := make([]error, 2)

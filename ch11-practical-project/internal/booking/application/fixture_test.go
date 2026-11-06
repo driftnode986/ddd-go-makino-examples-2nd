@@ -66,6 +66,18 @@ func lessons(t *testing.T) stubLessons {
 	return stubLessons{terms: terms(t)}
 }
 
+// stubMembers は決めた答えを返す MemberDirectory である。
+type stubMembers struct {
+	missing bool
+	err     error
+}
+
+func (s stubMembers) Exists(
+	context.Context, ids.MemberID,
+) (bool, error) {
+	return !s.missing, s.err
+}
+
 func placeInput() application.PlaceBookingInput {
 	return application.PlaceBookingInput{
 		MemberID: ids.NewID[ids.MemberMarker]().String(),

@@ -20,6 +20,8 @@ import (
 	catalogcontract "example.com/trainingbooking/internal/catalog/contract"
 	"example.com/trainingbooking/internal/catalog/domain"
 	catalogpg "example.com/trainingbooking/internal/catalog/infrastructure/postgres"
+	identity "example.com/trainingbooking/internal/identity/domain"
+	identitypg "example.com/trainingbooking/internal/identity/infrastructure/postgres"
 	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/dbtest"
 	"example.com/trainingbooking/internal/platform/outbox"
@@ -50,7 +52,8 @@ type flow struct {
 func newFlow(t *testing.T, store outbox.RelayStore) *flow {
 	t.Helper()
 	pool := dbtest.New(t, bookingpg.Migrations,
-		catalogpg.Migrations, outbox.Migrations)
+		catalogpg.Migrations, outbox.Migrations,
+		identitypg.Migrations)
 	var logs bytes.Buffer
 	return &flow{
 		t:    t,
@@ -208,14 +211,31 @@ func (f *flow) countEvents(eventType string) int {
 	return n
 }
 
-func newMember() ids.MemberID {
-	return ids.NewID[ids.MemberMarker]()
+// newMember は会員を登録して ID を返す。
+func (f *flow) newMember() ids.MemberID {
+	f.t.Helper()
+	id := ids.NewID[ids.MemberMarker]()
+	email, err := identity.NewEmail(id.String() + "@example.com")
+	if err != nil {
+		f.t.Fatalf("NewEmail: %v", err)
+	}
+	m, err := identity.NewMember(id, email, "花子")
+	if err != nil {
+		f.t.Fatalf("NewMember: %v", err)
+	}
+	err = f.tx.Do(f.t.Context(), func(ctx context.Context) error {
+		return identitypg.NewMemberRepository(f.pool).Add(ctx, m)
+	})
+	if err != nil {
+		f.t.Fatalf("Add: %v", err)
+	}
+	return id
 }
 
 func TestBookingFlow_ConfirmedWhenSeatAvailable(t *testing.T) {
 	f := newFlow(t, nil)
 	lesson := f.addLesson(1)
-	member := newMember()
+	member := f.newMember()
 	id := f.place(member, lesson)
 
 	// 配信の前は pending のまま見える
@@ -239,7 +259,7 @@ func TestBookingFlow_ConfirmedWhenSeatAvailable(t *testing.T) {
 func TestBookingFlow_RejectedWhenFull(t *testing.T) {
 	f := newFlow(t, nil)
 	lesson := f.addLesson(1)
-	first, second := newMember(), newMember()
+	first, second := f.newMember(), f.newMember()
 	firstID := f.place(first, lesson)
 	secondID := f.place(second, lesson)
 	f.drain()
@@ -265,7 +285,7 @@ func TestBookingFlow_RejectedWhenFull(t *testing.T) {
 func TestCancel_ReleasesSeat(t *testing.T) {
 	f := newFlow(t, nil)
 	lesson := f.addLesson(1)
-	first, second := newMember(), newMember()
+	first, second := f.newMember(), f.newMember()
 	id := f.place(first, lesson)
 	f.drain()
 
@@ -297,7 +317,7 @@ func TestCancel_ReleasesSeat(t *testing.T) {
 func TestCancel_PendingIsConflict(t *testing.T) {
 	f := newFlow(t, nil)
 	lesson := f.addLesson(1)
-	member := newMember()
+	member := f.newMember()
 	id := f.place(member, lesson)
 	rec := f.request("POST", "/bookings/"+id+"/cancel", "")
 	if rec.Code != http.StatusConflict {
@@ -309,16 +329,31 @@ func TestPlaceBooking_UnknownLessonIsBadRequest(t *testing.T) {
 	f := newFlow(t, nil)
 	rec := f.request("POST", "/bookings", fmt.Sprintf(
 		`{"member_id":%q,"lesson_id":%q}`,
-		newMember(), ids.NewID[ids.LessonMarker]()))
+		f.newMember(), ids.NewID[ids.LessonMarker]()))
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d: %s", rec.Code, rec.Body)
+	}
+}
+
+func TestPlaceBooking_UnknownMemberIsBadRequest(t *testing.T) {
+	f := newFlow(t, nil)
+	lesson := f.addLesson(1)
+	rec := f.request("POST", "/bookings", fmt.Sprintf(
+		`{"member_id":%q,"lesson_id":%q}`,
+		ids.NewID[ids.MemberMarker](), lesson))
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d: %s", rec.Code, rec.Body)
+	}
+	n := f.countEvents(bookingcontract.EventBookingPlaced)
+	if n != 0 {
+		t.Errorf("BookingPlaced = %d 件", n)
 	}
 }
 
 func TestPlaceBooking_OverlapIsConflict(t *testing.T) {
 	f := newFlow(t, nil)
 	first, second := f.addLesson(5), f.addLesson(5)
-	member := newMember()
+	member := f.newMember()
 	f.place(member, first)
 	rec := f.request("POST", "/bookings", fmt.Sprintf(
 		`{"member_id":%q,"lesson_id":%q}`, member, second))
@@ -387,7 +422,7 @@ func TestRelay_RedeliveryIsIdempotent(t *testing.T) {
 	f, store := newRedeliveryFlow(
 		t, bookingcontract.EventBookingPlaced)
 	lesson := f.addLesson(2)
-	member := newMember()
+	member := f.newMember()
 	id := f.place(member, lesson)
 	f.runUntilEmpty()
 
@@ -414,7 +449,7 @@ func TestRelay_RedeliveredSeatResultConfirmsOnce(t *testing.T) {
 	f, store := newRedeliveryFlow(
 		t, catalogcontract.EventSeatReserved)
 	lesson := f.addLesson(1)
-	member := newMember()
+	member := f.newMember()
 	id := f.place(member, lesson)
 	f.runUntilEmpty()
 
@@ -440,7 +475,7 @@ func TestRelay_RedeliveredCancelReleasesOnce(t *testing.T) {
 	f, store := newRedeliveryFlow(
 		t, bookingcontract.EventBookingCancelled)
 	lesson := f.addLesson(2)
-	member, other := newMember(), newMember()
+	member, other := f.newMember(), f.newMember()
 	id := f.place(member, lesson)
 	f.place(other, lesson)
 	f.runUntilEmpty()
@@ -462,10 +497,13 @@ func TestRelay_RedeliveredCancelReleasesOnce(t *testing.T) {
 	}
 }
 
-// 動いている配信処理が、予約からキャンセルまでを流す。
-func TestRelay_RunDeliversEndToEnd(t *testing.T) {
+// HTTP のサーバーと動いている配信処理を、実 DB につないで通す。
+func TestEndToEnd_PlaceConfirmCancel(t *testing.T) {
 	f := newFlow(t, nil)
 	lesson := f.addLesson(1)
+	member, other := f.newMember(), f.newMember()
+	server := httptest.NewServer(f.app.router)
+	defer server.Close()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- f.app.relay.Run(ctx) }()
@@ -476,12 +514,43 @@ func TestRelay_RunDeliversEndToEnd(t *testing.T) {
 		}
 	}()
 
-	member := newMember()
-	id := f.place(member, lesson)
+	post := func(path, body string) (int, map[string]any) {
+		t.Helper()
+		res, err := http.Post(server.URL+path,
+			"application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("POST %s: %v", path, err)
+		}
+		defer func() { _ = res.Body.Close() }()
+		var got map[string]any
+		err = json.NewDecoder(res.Body).Decode(&got)
+		if err != nil {
+			t.Fatalf("本文: %v", err)
+		}
+		return res.StatusCode, got
+	}
+	body := func(m ids.MemberID) string {
+		return fmt.Sprintf(`{"member_id":%q,"lesson_id":%q}`,
+			m, lesson)
+	}
+
+	status, got := post("/bookings", body(member))
+	id, _ := got["id"].(string)
+	if status != http.StatusCreated || got["status"] != "pending" {
+		t.Fatalf("予約: %d %v", status, got)
+	}
 	f.waitStatus(member, id, "confirmed")
-	rec := f.request("POST", "/bookings/"+id+"/cancel", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("キャンセル: %d: %s", rec.Code, rec.Body)
+
+	status, got = post("/bookings", body(other))
+	rejected, _ := got["id"].(string)
+	if status != http.StatusCreated {
+		t.Fatalf("満席の予約: %d %v", status, got)
+	}
+	f.waitStatus(other, rejected, "rejected")
+
+	status, got = post("/bookings/"+id+"/cancel", "")
+	if status != http.StatusOK || got["status"] != "cancelled" {
+		t.Fatalf("キャンセル: %d %v", status, got)
 	}
 	deadline := time.Now().Add(30 * time.Second)
 	for f.lesson(lesson).ReservedSeats() != 0 {
@@ -490,6 +559,14 @@ func TestRelay_RunDeliversEndToEnd(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+
+	// 戻った席は別の予約で確保できる
+	status, got = post("/bookings", body(other))
+	next, _ := got["id"].(string)
+	if status != http.StatusCreated {
+		t.Fatalf("戻った席の予約: %d %v", status, got)
+	}
+	f.waitStatus(other, next, "confirmed")
 }
 
 func (f *flow) waitStatus(

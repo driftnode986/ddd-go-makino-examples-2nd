@@ -34,3 +34,11 @@ sql:
         package: sqlcgen
         out: internal/platform/outbox/sqlcgen
         sql_package: pgx/v5
+  - engine: postgresql
+    schema: internal/identity/infrastructure/postgres/migrations
+    queries: internal/identity/infrastructure/postgres/queries.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/identity/infrastructure/postgres/sqlcgen
+        sql_package: pgx/v5
