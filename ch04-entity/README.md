@@ -12,6 +12,8 @@
 ## 第3章からの変更
 
 - 追加: `internal/booking/domain/` の `booking.go`・`booking_test.go`・`clock.go`・`errors.go`
+- `steps/` 本文で失敗を動かすためのコード（この章だけにあります）。`steps/testdata/` はわざとコンパイルできないコードで、`go build ./...` の対象になりません
+- `out/` 本に載せた実行結果。`bash out/regen.sh` で作り直せます
 
 ## 動かし方
 
@@ -29,6 +31,8 @@ ok  	example.com/trainingbooking/internal/booking/domain
 ok  	example.com/trainingbooking/internal/identity/domain
 ok  	example.com/trainingbooking/internal/ids
 ```
+
+`steps/` の下のパッケージも同じように `ok` で出ます。
 
 4つの状態と3つの操作の組み合わせは、次のテストで確かめます。
 

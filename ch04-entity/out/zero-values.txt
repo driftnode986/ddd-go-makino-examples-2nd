@@ -1,0 +1,2 @@
+zero TimeSlot: invalid booking: required value is missing
+zero Money: invalid booking: required value is missing

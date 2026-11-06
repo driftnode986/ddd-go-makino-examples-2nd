@@ -1,0 +1,3 @@
+Status=""
+Confirm: invalid status transition: confirm from ""
+Cancel: invalid status transition: cancel from ""

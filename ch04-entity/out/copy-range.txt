@@ -1,0 +1,3 @@
+loop variable: confirmed
+loop variable: confirmed
+in the slice:  pending

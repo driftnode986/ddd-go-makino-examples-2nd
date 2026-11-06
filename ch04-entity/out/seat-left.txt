@@ -1,0 +1,3 @@
+Cancel: err=<nil> status=cancelled
+Confirm: err=invalid status transition
+status=cancelled reserved=1

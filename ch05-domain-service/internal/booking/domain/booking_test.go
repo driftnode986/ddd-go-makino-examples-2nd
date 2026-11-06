@@ -9,9 +9,13 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
+// #region fixed-clock
+
 type fixedClock struct{ now time.Time }
 
 func (c fixedClock) Now() time.Time { return c.now }
+
+// #endregion
 
 // 予約の開始は6月1日10時、現在は5月1日とする。
 var (
@@ -115,6 +119,8 @@ func TestNewBooking_RejectsZeroValues(t *testing.T) {
 	}
 }
 
+// #region past-start
+
 func TestNewBooking_RejectsPastStart(t *testing.T) {
 	for _, now := range []time.Time{
 		lessonStart, lessonStart.Add(time.Hour),
@@ -132,6 +138,8 @@ func TestNewBooking_RejectsPastStart(t *testing.T) {
 		}
 	}
 }
+
+// #endregion
 
 func TestBooking_ZeroValueMethodsReturnErrors(t *testing.T) {
 	b := &domain.Booking{}
@@ -162,6 +170,7 @@ func TestBooking_Transitions(t *testing.T) {
 		return b.Cancel(earlier)
 	}
 
+	// #region transitions
 	cases := []struct {
 		name    string
 		from    domain.Status
@@ -182,6 +191,7 @@ func TestBooking_Transitions(t *testing.T) {
 		{"Cancel", rejected, cancel, rejected, invalid},
 		{"Cancel", cancelled, cancel, cancelled, invalid},
 	}
+	// #endregion
 	for _, c := range cases {
 		t.Run(c.name+"/"+string(c.from), func(t *testing.T) {
 			b := inStatus(t, c.from)
@@ -196,6 +206,8 @@ func TestBooking_Transitions(t *testing.T) {
 	}
 }
 
+// #region pending-cancel
+
 func TestCancel_PendingIsRejected(t *testing.T) {
 	b := newBooking(t)
 	err := b.Cancel(earlier)
@@ -206,6 +218,10 @@ func TestCancel_PendingIsRejected(t *testing.T) {
 		t.Fatalf("Status = %s", b.Status())
 	}
 }
+
+// #endregion
+
+// #region within-24h
 
 func TestCancel_Within24Hours(t *testing.T) {
 	deadline := lessonStart.Add(-24 * time.Hour)
@@ -225,6 +241,10 @@ func TestCancel_Within24Hours(t *testing.T) {
 		t.Fatalf("期限ちょうど: err = %v", err)
 	}
 }
+
+// #endregion
+
+// #region equal
 
 func TestBooking_EqualComparesIdentity(t *testing.T) {
 	a := newBooking(t)
@@ -247,3 +267,5 @@ func TestBooking_EqualComparesIdentity(t *testing.T) {
 		t.Error("nil とは等しくない")
 	}
 }
+
+// #endregion

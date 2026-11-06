@@ -1,0 +1,2 @@
+a == same:     false
+a.Equal(same): true

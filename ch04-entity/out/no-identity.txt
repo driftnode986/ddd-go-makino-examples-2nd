@@ -1,0 +1,2 @@
+same booking, before and after: false
+two different bookings: true

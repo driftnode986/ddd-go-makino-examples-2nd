@@ -1,0 +1,2 @@
+main.go:10:4: b.status undefined (type *domain.Booking has no field
+or method status, but does have method Status)

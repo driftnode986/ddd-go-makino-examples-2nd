@@ -8,6 +8,8 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
+// #region status
+
 // Status は予約の状態である。
 type Status string
 
@@ -18,6 +20,8 @@ const (
 	StatusRejected  Status = "rejected"
 	StatusCancelled Status = "cancelled"
 )
+
+// #endregion
 
 const (
 	// changeDeadline はキャンセルと明細の追加の期限である。
@@ -85,8 +89,12 @@ func (b *Booking) LessonID() ids.LessonID { return b.lessonID }
 // Slot は時間帯を返す。
 func (b *Booking) Slot() TimeSlot { return b.slot }
 
+// #region status-getter
+
 // Status は状態を返す。
 func (b *Booking) Status() Status { return b.status }
+
+// #endregion
 
 // Version は読み込んだときの版を返す。
 func (b *Booking) Version() int { return b.version }
@@ -102,10 +110,17 @@ func (b *Booking) Total() Money {
 	return Money{yen: b.subtotal.yen - b.discount.yen}
 }
 
-// Equal は同じ予約のとき true を返す。エンティティなので ID で判定する。
+// #region equal
+
+// Equal は同じ予約のとき true を返す。
+// エンティティなので ID で判定する。
 func (b *Booking) Equal(other *Booking) bool {
 	return other != nil && b.id.Equal(other.id)
 }
+
+// #endregion
+
+// #region confirm-reject
 
 // Confirm は席が確保できた予約を確定する。
 func (b *Booking) Confirm() error {
@@ -125,6 +140,10 @@ func (b *Booking) Reject() error {
 	return nil
 }
 
+// #endregion
+
+// #region cancel
+
 // Cancel は確定済みの予約を開始の24時間前まで取り消す。
 // pending は席の確保と行き違うので取り消せない。
 func (b *Booking) Cancel(clk Clock) error {
@@ -138,6 +157,8 @@ func (b *Booking) Cancel(clk Clock) error {
 	b.status = StatusCancelled
 	return nil
 }
+
+// #endregion
 
 // AddOption は pending の予約に、開始の24時間前まで明細を追加する。
 func (b *Booking) AddOption(o BookingOption, clk Clock) error {
@@ -166,10 +187,14 @@ func (b *Booking) ApplyDiscount(discount Money) error {
 	return nil
 }
 
+// #region past-deadline
+
 // pastDeadline は開始の24時間前を過ぎたとき true を返す。
 func (b *Booking) pastDeadline(now time.Time) bool {
 	return now.After(b.slot.Start().Add(-changeDeadline))
 }
+
+// #endregion
 
 // setOptions は明細の不変条件を確かめてから入れ替える。
 // 追加と再構築はここを通る。
@@ -197,10 +222,14 @@ func (b *Booking) setOptions(options []BookingOption) error {
 	return nil
 }
 
+// #region invalid-transition
+
 func (b *Booking) invalidTransition(op string) error {
 	return fmt.Errorf(
 		"%w: %s from %q", ErrInvalidTransition, op, b.status)
 }
+
+// #endregion
 
 // active は割引を変更できる状態のとき true を返す。
 func (s Status) active() bool {

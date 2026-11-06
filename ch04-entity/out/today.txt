@@ -1,0 +1,2 @@
+lesson in 2030: err=<nil>
+lesson in 2025: err=too late to cancel
