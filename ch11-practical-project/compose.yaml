@@ -10,6 +10,12 @@ services:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql
+      # データベースを初めて作るときにスキーマを流す
+      - type: bind
+        source: "./internal/booking/infrastructure/postgres/\
+          migrations/0001_create_bookings.sql"
+        target: /docker-entrypoint-initdb.d/0001_create_bookings.sql
+        read_only: true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dev -d trainingbooking"]
       interval: 5s
