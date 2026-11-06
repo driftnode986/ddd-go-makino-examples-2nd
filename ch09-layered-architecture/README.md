@@ -5,7 +5,7 @@ HTTP の層と `main` を足して、初めて `go run` で動かします。
 ## できるようになったこと
 
 - `POST /bookings`・`POST /bookings/{id}/cancel`・`GET /members/{id}/bookings` を `net/http` の `ServeMux` で受けられます
-- `POST /bookings` は任意の `coupon_code` を受け取ります。割引率は受け取りません
+- `POST /bookings` は任意の `options`（名前と数量）と `coupon_code` を受け取ります。時間帯・料金・単価・割引率は受け取りません
 - `ApplicationError` の `Kind` を HTTP ステータスに変換します。500 の本文に内部の文字列を出しません
 - `Recovery`・`RequestID`・`Logging` のミドルウェアで、すべてのリクエストをログに記録します
 - SIGTERM で処理中のリクエストを待って止まります
@@ -29,7 +29,9 @@ go run ./cmd/api
 
 PostgreSQL は `127.0.0.1:5432` で待ち受けます。別の章で起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` を指定します。接続先は環境変数 `DATABASE_URL`、待ち受けるアドレスは `ADDR` で変えられます。
 
-別のターミナルから予約します。`start` は未来の日時にします。
+この章のレッスンの条件は `cmd/api` の固定値で、1通りです。時間帯は起動した日の30日後の10時から1時間、料金は3000円、オプションはシューズ（300円）とタオル（100円）です。`lesson_id` は形式が正しければ何でも受け付けます。
+
+別のターミナルから予約します。
 
 ```bash
 curl -i -X POST localhost:8080/bookings \
@@ -37,24 +39,22 @@ curl -i -X POST localhost:8080/bookings \
   -d '{
     "member_id": "0196f5a0-0000-7000-8000-000000000001",
     "lesson_id": "0196f5a0-0000-7000-8000-000000000002",
-    "start": "2030-06-01T10:00:00+09:00",
-    "duration_minutes": 60
+    "options": [{"name": "シューズ", "quantity": 2}]
   }'
 curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000001/bookings
 ```
 
-クーポンのコードを付けると、合計から割り引きます。使えるコードは `WELCOME10`（10%）です。
+クーポンのコードを付けると、合計から割り引きます。使えるコードは `WELCOME10`（10%）です。時間帯は1通りなので、別の会員で予約します。
 
 ```bash
 curl -i -X POST localhost:8080/bookings \
   -H 'Content-Type: application/json' \
   -d '{
-    "member_id": "0196f5a0-0000-7000-8000-000000000001",
+    "member_id": "0196f5a0-0000-7000-8000-000000000003",
     "lesson_id": "0196f5a0-0000-7000-8000-000000000002",
-    "start": "2030-06-01T14:00:00+09:00",
-    "duration_minutes": 60,
     "coupon_code": "WELCOME10"
   }'
+curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000003/bookings
 ```
 
 止めるときは `go run` のターミナルで Ctrl+C を押し、`make down` を実行します。
@@ -73,13 +73,21 @@ curl -i -X POST localhost:8080/bookings \
 {"kind":"conflict","message":"同じ時間帯に別の予約があります"}
 ```
 
-一覧には `"status":"pending"`・`"total_yen":3000`・`"options":[]` の予約が出ます。この章の `POST /bookings` はオプションを受け取らないので、`options` は空です（第10章で受け取ります）。クーポンつきの予約の合計は `"total_yen":2700` です。
+一覧には次の予約が出ます。`id` と日時は実行ごとに変わります。
+
+```json
+{"bookings":[{"id":"…","lesson_id":"0196f5a0-0000-7000-8000-000000000002","start":"…","end":"…","status":"pending","total_yen":3600,"options":[{"name":"シューズ","quantity":2,"subtotal_yen":600}]}]}
+```
+
+クーポンつきの予約の合計は `"total_yen":2700` で、`options` は `[]` です。
 
 `coupon_code` を `UNKNOWN` のような不明なコードにすると、`400` と次の本文を返し、予約は保存されません。
 
 ```json
 {"kind":"invalid","message":"クーポンのコードが正しくありません"}
 ```
+
+レッスンに無いオプション名も `400` で、本文の `message` は「レッスンに無いオプションです」です。0以下の数量、同じ名前の重複、金額のあふれも `400` です。
 
 `go test -tags=integration ./...` は次の行が `ok` で出ます。最後に実行時間が付きます。テストの無いパッケージは `[no test files]` と出ます。
 
@@ -97,4 +105,4 @@ ok  	example.com/trainingbooking/internal/platform/logging
 ok  	example.com/trainingbooking/internal/platform/txn/memtx
 ```
 
-定員を見る処理はまだありません。第10章で Catalog を足します。
+定員を見る処理はまだありません。第10章で Catalog を足し、`LessonTerms` の取得元を固定値から Catalog に入れ替えます。

@@ -85,4 +85,16 @@ var translations = []struct {
 		"今の状態ではこの操作はできません",
 	},
 	{domain.ErrCancelTooLate, KindConflict, "キャンセルの期限を過ぎています"},
+	{ErrUnknownOption, KindInvalid, "レッスンに無いオプションです"},
+	{
+		domain.ErrInvalidOption, KindInvalid,
+		"オプションの指定が正しくありません",
+	},
+	{domain.ErrOptionLimit, KindInvalid, "オプションの数が上限を超えています"},
+	{domain.ErrDuplicateOption, KindInvalid, "同じオプションが重複しています"},
+	{
+		domain.ErrChangeTooLate, KindInvalid,
+		"オプションを追加できる期限を過ぎています",
+	},
+	{domain.ErrMoneyOverflow, KindInvalid, "金額が上限を超えています"},
 }

@@ -10,35 +10,37 @@ import (
 	"example.com/trainingbooking/internal/booking/application"
 )
 
-const (
-	maxBodyBytes       = 1 << 20
-	maxDurationMinutes = 24 * 60
-)
+const maxBodyBytes = 1 << 20
 
-// placeBookingRequest は POST /bookings の本文である。
-type placeBookingRequest struct {
-	MemberID        string    `json:"member_id"`
-	LessonID        string    `json:"lesson_id"`
-	Start           time.Time `json:"start"`
-	DurationMinutes int       `json:"duration_minutes"`
-	CouponCode      string    `json:"coupon_code"`
+// optionRequest は選んだオプションと数量である。
+type optionRequest struct {
+	Name     string `json:"name"`
+	Quantity int    `json:"quantity"`
 }
 
-func (r placeBookingRequest) toInput() (
-	application.PlaceBookingInput, error,
-) {
-	// 分から Duration への変換であふれないように先に止める
-	if r.DurationMinutes > maxDurationMinutes {
-		return application.PlaceBookingInput{},
-			errors.New("duration_minutes is too large")
+// placeBookingRequest は POST /bookings の本文である。
+// 時間帯と料金はレッスンから取るので受け取らない。
+type placeBookingRequest struct {
+	MemberID   string          `json:"member_id"`
+	LessonID   string          `json:"lesson_id"`
+	Options    []optionRequest `json:"options"`
+	CouponCode string          `json:"coupon_code"`
+}
+
+func (r placeBookingRequest) input() application.PlaceBookingInput {
+	options := make([]application.OptionInput, len(r.Options))
+	for i, o := range r.Options {
+		options[i] = application.OptionInput{
+			Name:     o.Name,
+			Quantity: o.Quantity,
+		}
 	}
 	return application.PlaceBookingInput{
 		MemberID:   r.MemberID,
 		LessonID:   r.LessonID,
-		Start:      r.Start,
-		Duration:   time.Duration(r.DurationMinutes) * time.Minute,
+		Options:    options,
 		CouponCode: r.CouponCode,
-	}, nil
+	}
 }
 
 // bookingResponse は予約とキャンセルの結果である。

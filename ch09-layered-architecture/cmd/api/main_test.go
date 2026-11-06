@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"example.com/trainingbooking/internal/booking/domain"
 )
 
 // 期限までに終わらないリクエストは中断する。
@@ -39,5 +41,29 @@ func TestShutdown_CancelsRequestsAfterTimeout(t *testing.T) {
 	case <-canceled:
 	case <-time.After(5 * time.Second):
 		t.Fatal("リクエストが中断されない")
+	}
+}
+
+// 固定の条件は営業時間内で、起動した時刻より後でなければならない。
+func TestLessonTerms_IsBookable(t *testing.T) {
+	jst := time.FixedZone("JST", 9*60*60)
+	// 日本時間の深夜でも、翌日にずれない
+	now := time.Date(2026, time.November, 6, 23, 30, 0, 0, jst)
+	terms, err := lessonTerms(now)
+	if err != nil {
+		t.Fatalf("lessonTerms: %v", err)
+	}
+	want := time.Date(2026, time.December, 6, 10, 0, 0, 0, jst)
+	if !terms.Start.Equal(want) || terms.Duration != time.Hour {
+		t.Errorf("Start = %v, Duration = %v",
+			terms.Start, terms.Duration)
+	}
+	_, err = domain.NewTimeSlot(
+		terms.Start, terms.Duration, terms.Location)
+	if err != nil {
+		t.Errorf("NewTimeSlot: %v", err)
+	}
+	if terms.Fee.Amount() != 3000 || len(terms.Options) != 2 {
+		t.Errorf("Fee = %v, Options = %v", terms.Fee, terms.Options)
 	}
 }

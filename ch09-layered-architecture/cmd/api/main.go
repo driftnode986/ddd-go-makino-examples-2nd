@@ -29,6 +29,8 @@ const (
 	defaultAddr     = "localhost:8080"
 	shutdownTimeout = 10 * time.Second
 	lessonFeeYen    = 3000
+	shoesPriceYen   = 300
+	towelPriceYen   = 100
 )
 
 // systemClock は実際の現在時刻を返す。
@@ -75,7 +77,8 @@ func run(logger *slog.Logger) error {
 func newRouter(
 	pool *pgxpool.Pool, logger *slog.Logger,
 ) (http.Handler, error) {
-	terms, err := lessonTerms()
+	clock := systemClock{}
+	terms, err := lessonTerms(clock.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +86,6 @@ func newRouter(
 	queries := postgres.NewBookingQueries(pool)
 	tx := pgtx.NewTransactor(pool)
 	outbox := postgres.NewLoggingOutbox(logger)
-	clock := systemClock{}
 	return presentation.NewRouter(presentation.Deps{
 		Place: application.NewPlaceBooking(
 			repo, queries, outbox, tx, clock,
@@ -95,15 +97,33 @@ func newRouter(
 	}), nil
 }
 
-// lessonTerms はレッスンの料金とタイムゾーンを固定で返す。
-func lessonTerms() (application.LessonTerms, error) {
+// lessonTerms はレッスンの条件を固定で返す。時間帯は起動した日の
+// 30日後の10時に置き、いつ動かしても未来の日時にする。
+func lessonTerms(now time.Time) (application.LessonTerms, error) {
 	fee, err := domain.NewMoney(lessonFeeYen)
 	if err != nil {
 		return application.LessonTerms{}, err
 	}
+	shoes, err := domain.NewMoney(shoesPriceYen)
+	if err != nil {
+		return application.LessonTerms{}, err
+	}
+	towel, err := domain.NewMoney(towelPriceYen)
+	if err != nil {
+		return application.LessonTerms{}, err
+	}
+	jst := time.FixedZone("JST", 9*60*60)
+	day := now.In(jst).AddDate(0, 0, 30)
 	return application.LessonTerms{
+		Start: time.Date(
+			day.Year(), day.Month(), day.Day(), 10, 0, 0, 0, jst),
+		Duration: time.Hour,
 		Fee:      fee,
-		Location: time.FixedZone("JST", 9*60*60),
+		Location: jst,
+		Options: []application.OfferedOption{
+			{Name: "シューズ", UnitPrice: shoes},
+			{Name: "タオル", UnitPrice: towel},
+		},
 	}, nil
 }
 

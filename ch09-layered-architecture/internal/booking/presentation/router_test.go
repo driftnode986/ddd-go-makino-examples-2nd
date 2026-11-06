@@ -127,8 +127,7 @@ func logRecords(t *testing.T, buf *bytes.Buffer) []map[string]any {
 const validBody = `{
 	"member_id": "0196f5a0-0000-7000-8000-000000000001",
 	"lesson_id": "0196f5a0-0000-7000-8000-000000000002",
-	"start": "2030-06-01T10:00:00+09:00",
-	"duration_minutes": 60
+	"options": [{"name": "シューズ", "quantity": 2}]
 }`
 
 func TestPostBookings_Created(t *testing.T) {
@@ -155,10 +154,10 @@ func TestPostBookings_Created(t *testing.T) {
 	if body["id"] != "b1" || body["status"] != "pending" {
 		t.Errorf("body = %v", body)
 	}
-	want := time.Date(2030, time.June, 1, 10, 0, 0, 0, jst)
 	if got.MemberID != "0196f5a0-0000-7000-8000-000000000001" ||
 		got.LessonID != "0196f5a0-0000-7000-8000-000000000002" ||
-		!got.Start.Equal(want) || got.Duration != time.Hour {
+		len(got.Options) != 1 || got.Options[0].Name != "シューズ" ||
+		got.Options[0].Quantity != 2 {
 		t.Errorf("input = %+v", got)
 	}
 }
@@ -195,12 +194,14 @@ func TestPostBookings_BadJSON(t *testing.T) {
 	cases := []struct{ name, body string }{
 		{"空", ""},
 		{"構文の誤り", `{"member_id":`},
-		{"型の誤り", `{"duration_minutes":"60"}`},
+		{"型の誤り", `{"options":"シューズ"}`},
 		{"知らない項目", `{"fee_yen":1}`},
 		{"割引率は受け取らない", `{"discount_percent":10}`},
+		{"開始は受け取らない", `{"start":"2030-06-01T10:00:00+09:00"}`},
+		{"長さは受け取らない", `{"duration_minutes":60}`},
+		{"単価は受け取らない",
+			`{"options":[{"name":"x","unit_price_yen":1}]}`},
 		{"2つの値", `{} {}`},
-		{"日時の誤り", `{"start":"tomorrow"}`},
-		{"長さが大きすぎる", `{"duration_minutes":99999999999}`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -604,12 +605,24 @@ func TestRouter_WithUseCases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMoney: %v", err)
 	}
+	price, err := domain.NewMoney(300)
+	if err != nil {
+		t.Fatalf("NewMoney: %v", err)
+	}
+	terms := application.LessonTerms{
+		Start:    time.Date(2030, time.June, 1, 10, 0, 0, 0, jst),
+		Duration: time.Hour,
+		Fee:      fee,
+		Location: jst,
+		Options: []application.OfferedOption{
+			{Name: "シューズ", UnitPrice: price},
+		},
+	}
 	var buf bytes.Buffer
 	router := presentation.NewRouter(presentation.Deps{
 		Place: application.NewPlaceBooking(
 			repo, memory.NewBookingQueries(repo), outbox, tx, clock,
-			fixed.NewCoupons(),
-			application.LessonTerms{Fee: fee, Location: jst}),
+			fixed.NewCoupons(), terms),
 		Cancel: application.NewCancelBooking(
 			repo, outbox, tx, clock),
 		Queries: memory.NewBookingQueries(repo),
@@ -648,6 +661,11 @@ func TestRouter_WithUseCases(t *testing.T) {
 	if !ok || len(bookings) != 1 {
 		t.Errorf("一覧: %s", rec.Body)
 	}
+	const options = `"options":[` +
+		`{"name":"シューズ","quantity":2,"subtotal_yen":600}]`
+	if !strings.Contains(rec.Body.String(), options) {
+		t.Errorf("一覧の明細: %s", rec.Body)
+	}
 
 	// 別の会員なら同じ時間帯も予約できる
 	const other = "0196f5a0-0000-7000-8000-000000000003"
@@ -671,7 +689,7 @@ func TestRouter_WithUseCases(t *testing.T) {
 		t.Fatalf("一覧: %s", rec.Body)
 	}
 	got, ok := bookings[0].(map[string]any)
-	if !ok || got["total_yen"] != 2700.0 {
+	if !ok || got["total_yen"] != 3240.0 {
 		t.Errorf("割引後の合計: %s", rec.Body)
 	}
 }

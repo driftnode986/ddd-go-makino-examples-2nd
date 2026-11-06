@@ -33,11 +33,20 @@ func yen(t *testing.T, v int64) domain.Money {
 	return m
 }
 
+// lessonStart はテストのレッスンの開始である。
+var lessonStart = time.Date(2030, time.June, 1, 10, 0, 0, 0, jst)
+
 func terms(t *testing.T) application.LessonTerms {
 	t.Helper()
 	return application.LessonTerms{
+		Start:    lessonStart,
+		Duration: time.Hour,
 		Fee:      yen(t, 3000),
 		Location: jst,
+		Options: []application.OfferedOption{
+			{Name: "シューズ", UnitPrice: yen(t, 300)},
+			{Name: "タオル", UnitPrice: yen(t, 100)},
+		},
 	}
 }
 
@@ -45,8 +54,6 @@ func placeInput() application.PlaceBookingInput {
 	return application.PlaceBookingInput{
 		MemberID: ids.NewID[ids.MemberMarker]().String(),
 		LessonID: ids.NewID[ids.LessonMarker]().String(),
-		Start:    time.Date(2030, time.June, 1, 10, 0, 0, 0, jst),
-		Duration: time.Hour,
 	}
 }
 
@@ -83,7 +90,7 @@ func addConfirmed(t *testing.T, d memoryDeps) ids.BookingID {
 	if err != nil {
 		t.Fatalf("ParseID: %v", err)
 	}
-	slot, err := domain.NewTimeSlot(in.Start, in.Duration, jst)
+	slot, err := domain.NewTimeSlot(lessonStart, time.Hour, jst)
 	if err != nil {
 		t.Fatalf("NewTimeSlot: %v", err)
 	}

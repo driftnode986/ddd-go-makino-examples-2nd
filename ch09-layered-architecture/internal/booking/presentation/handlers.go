@@ -32,12 +32,7 @@ func (h *handlers) postBooking(
 		h.writeInvalid(w, r, messageBadRequest)
 		return
 	}
-	in, err := req.toInput()
-	if err != nil {
-		h.writeInvalid(w, r, messageBadRequest)
-		return
-	}
-	out, err := h.place.Execute(r.Context(), in)
+	out, err := h.place.Execute(r.Context(), req.input())
 	if err != nil {
 		h.writeError(w, r, err)
 		return
