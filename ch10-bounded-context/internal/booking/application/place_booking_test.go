@@ -408,7 +408,9 @@ func TestPlaceBooking_DetectsOverlapBeforeAdd(t *testing.T) {
 	}
 }
 
-// 読み取りの時点で見えなかった予約は、リポジトリが ErrOverlap で止める。
+// #region stale-read
+
+// 読み取りで見えなかった予約は、リポジトリが ErrOverlap で止める。
 func TestPlaceBooking_StaleReadIsStoppedByRepository(t *testing.T) {
 	d := newMemoryDeps()
 	d.queries = staleQueries{d.queries}
@@ -427,6 +429,8 @@ func TestPlaceBooking_StaleReadIsStoppedByRepository(t *testing.T) {
 		t.Errorf("events = %v", d.outbox.Events())
 	}
 }
+
+// #endregion
 
 func TestPlaceBooking_QueryFailureIsKindInternal(t *testing.T) {
 	d := newMemoryDeps()
@@ -520,6 +524,8 @@ func TestPlaceBooking_CouponFailureIsKindInternal(t *testing.T) {
 	}
 }
 
+// #region coupon-options
+
 // 割引の対象は料金と明細の合計である。
 func TestPlaceBooking_CouponDiscountsOptionsToo(t *testing.T) {
 	d := newMemoryDeps()
@@ -538,3 +544,5 @@ func TestPlaceBooking_CouponDiscountsOptionsToo(t *testing.T) {
 		t.Errorf("Total = %d", got)
 	}
 }
+
+// #endregion

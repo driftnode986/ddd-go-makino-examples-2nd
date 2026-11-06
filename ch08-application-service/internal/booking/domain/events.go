@@ -6,6 +6,8 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
+// #region domain-event
+
 // DomainEvent は集約が記録する出来事である。
 type DomainEvent interface {
 	EventName() string
@@ -20,6 +22,8 @@ type BookingPlaced struct {
 	LessonID   ids.LessonID
 	OccurredAt time.Time
 }
+
+// #endregion
 
 // EventName はイベントの名前を返す。
 func (BookingPlaced) EventName() string { return "booking.placed" }

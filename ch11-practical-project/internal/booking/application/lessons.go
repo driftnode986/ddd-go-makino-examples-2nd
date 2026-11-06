@@ -22,6 +22,8 @@ type OfferedOption struct {
 	UnitPrice domain.Money
 }
 
+// #region lesson-terms
+
 // LessonTerms は予約に使うレッスンの条件である。Booking の言葉で
 // 表した値で、Catalog の型はここに現れない。
 type LessonTerms struct {
@@ -31,6 +33,8 @@ type LessonTerms struct {
 	Location *time.Location
 	Options  []OfferedOption
 }
+
+// #endregion
 
 // LessonCatalog はレッスンの条件を読む。
 type LessonCatalog interface {

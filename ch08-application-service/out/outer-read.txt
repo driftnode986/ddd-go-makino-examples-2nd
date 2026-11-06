@@ -1,0 +1,3 @@
+外側の ctx で読む: booking not found:
+01a1b30e-9d73-795c-991b-063c1c3437f3
+渡された ctx で読む: <nil>

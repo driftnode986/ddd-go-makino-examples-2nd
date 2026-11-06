@@ -1,0 +1,4 @@
+ch08-application-service/internal/booking/application/zz_tx.go:3:8:
+import 'github.com/jackc/pgx/v5' is not allowed from list
+'application-layer': application から pgx を import できません
+(depguard)

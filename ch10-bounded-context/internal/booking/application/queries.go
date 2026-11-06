@@ -8,6 +8,8 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
+// #region booking-view
+
 // BookingOptionView は一覧に載せる明細である。
 type BookingOptionView struct {
 	Name        string
@@ -27,6 +29,10 @@ type BookingView struct {
 	Options  []BookingOptionView
 }
 
+// #endregion
+
+// #region booking-queries
+
 // BookingQueries は予約の読み取りである。集約を組み立てない。
 type BookingQueries interface {
 	// ListByMember は会員の予約を開始の順に返す。
@@ -40,3 +46,5 @@ type BookingQueries interface {
 		ctx context.Context, member ids.MemberID,
 	) ([]domain.TimeSlot, error)
 }
+
+// #endregion

@@ -1,0 +1,2 @@
+集約を1件ずつ読む: SQL 21 回
+ListByMember: SQL 1 回

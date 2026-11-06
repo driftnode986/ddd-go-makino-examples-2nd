@@ -16,6 +16,8 @@ type OfferedOption struct {
 	UnitPrice domain.Money
 }
 
+// #region lesson-terms
+
 // LessonTerms は予約に使うレッスンの条件である。
 type LessonTerms struct {
 	Start    time.Time
@@ -24,3 +26,5 @@ type LessonTerms struct {
 	Location *time.Location
 	Options  []OfferedOption
 }
+
+// #endregion

@@ -19,6 +19,8 @@ func RequestID(ctx context.Context) string {
 	return id
 }
 
+// #region context-handler
+
 // contextHandler は context の値をログの属性に加える。
 type contextHandler struct {
 	slog.Handler
@@ -39,6 +41,8 @@ func (h contextHandler) Handle(
 	}
 	return h.Handler.Handle(ctx, r)
 }
+
+// #endregion
 
 // WithAttrs は context を読む動きを保ったまま属性を加える。
 func (h contextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

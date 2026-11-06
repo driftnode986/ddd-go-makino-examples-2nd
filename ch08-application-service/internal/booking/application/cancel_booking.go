@@ -36,8 +36,7 @@ func NewCancelBooking(
 	return &CancelBooking{repo, outbox, tx, clock}
 }
 
-// Execute は予約を読み、取り消して保存し、同じ Tx で
-// BookingCancelled を outbox に書く。失敗した集約は捨てる。
+// Execute は ID を値にして取り消し、エラーを変換する。
 func (u *CancelBooking) Execute(
 	ctx context.Context, in CancelBookingInput,
 ) (CancelBookingOutput, error) {
@@ -46,8 +45,25 @@ func (u *CancelBooking) Execute(
 		return CancelBookingOutput{},
 			invalid("予約 ID の形式が正しくありません", err)
 	}
+	status, err := u.cancel(ctx, id)
+	if err != nil {
+		return CancelBookingOutput{}, translate(err)
+	}
+	return CancelBookingOutput{
+		BookingID: id.String(),
+		Status:    string(status),
+	}, nil
+}
+
+// #region cancel
+
+// cancel は予約を読み、取り消して保存し、同じ Tx で
+// BookingCancelled を outbox に書く。失敗した集約は捨てる。
+func (u *CancelBooking) cancel(
+	ctx context.Context, id ids.BookingID,
+) (domain.Status, error) {
 	var status domain.Status
-	err = u.tx.Do(ctx, func(ctx context.Context) error {
+	err := u.tx.Do(ctx, func(ctx context.Context) error {
 		b, err := u.repo.FindByID(ctx, id)
 		if err != nil {
 			return err
@@ -61,11 +77,7 @@ func (u *CancelBooking) Execute(
 		status = b.Status()
 		return u.outbox.Append(ctx, b.PullEvents()...)
 	})
-	if err != nil {
-		return CancelBookingOutput{}, translate(err)
-	}
-	return CancelBookingOutput{
-		BookingID: id.String(),
-		Status:    string(status),
-	}, nil
+	return status, err
 }
+
+// #endregion

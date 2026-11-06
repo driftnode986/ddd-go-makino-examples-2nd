@@ -216,12 +216,16 @@ func (b *Booking) ApplyDiscount(discount Money) error {
 
 // #endregion
 
+// #region pull-events
+
 // PullEvents は記録したイベントを取り出し、集約から消す。
 func (b *Booking) PullEvents() []DomainEvent {
 	events := b.events
 	b.events = nil
 	return events
 }
+
+// #endregion
 
 // #region past-deadline
 

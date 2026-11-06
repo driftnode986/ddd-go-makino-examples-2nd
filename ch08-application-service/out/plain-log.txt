@@ -1,0 +1,2 @@
+標準: {"level":"INFO","msg":"予約を受け付けた"}
+自前: {"level":"INFO","msg":"予約を受け付けた","request_id":"req-1"}

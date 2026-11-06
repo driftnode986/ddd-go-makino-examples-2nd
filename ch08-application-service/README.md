@@ -18,7 +18,7 @@
 ## 第7章からの変更
 
 - 追加: `internal/booking/application/`、`internal/booking/infrastructure/fixed/`（クーポンの固定の表）、`internal/booking/domain/events.go`、`internal/platform/logging/`、`internal/booking/infrastructure/memory/` の `outbox.go`・`queries.go`、`internal/booking/infrastructure/postgres/queries.go`
-- 変更: `booking.go` がイベントを記録します。`booking_state.go` に `ReconstructTimeSlot` を追加しました。`booking_option.go` に in-memory の一覧が読む `Name`・`Quantity`・`Subtotal` を追加しました。`queries.sql` と生成コードに一覧と有効な予約の時間帯を追加しました
+- 変更: `booking.go` がイベントを記録します。`booking_state.go` に `ReconstructTimeSlot` を追加しました。`queries.sql` と生成コードに一覧と有効な予約の時間帯を追加しました
 
 ## 動かし方
 

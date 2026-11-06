@@ -1,0 +1,3 @@
+DB の障害: 500 add: connection refused: secret-host:5432
+期限切れ: 500 too late to cancel
+明細の上限: 500 too many booking options

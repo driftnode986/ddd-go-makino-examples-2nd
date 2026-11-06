@@ -1,0 +1,5 @@
+Kind: internal
+Message: 内部エラーが発生しました
+Error(): internal: 内部エラーが発生しました: add: connection
+refused: secret-host:5432
+errors.Is(err, db): true

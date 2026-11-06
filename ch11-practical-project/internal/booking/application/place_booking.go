@@ -10,6 +10,8 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
+// #region place-input
+
 // OptionInput は選んだオプションと数量である。
 // 単価はレッスンの値を使うので、入力では受け取らない。
 type OptionInput struct {
@@ -33,6 +35,10 @@ type PlaceBookingOutput struct {
 	Status    string
 }
 
+// #endregion
+
+// #region place-type
+
 // PlaceBooking は予約を受け付ける。
 type PlaceBooking struct {
 	repo    domain.BookingRepository
@@ -44,6 +50,8 @@ type PlaceBooking struct {
 	lessons LessonCatalog
 	members MemberDirectory
 }
+
+// #endregion
 
 // NewPlaceBooking は PlaceBooking を返す。
 func NewPlaceBooking(
@@ -60,6 +68,8 @@ func NewPlaceBooking(
 		repo, queries, outbox, tx, clock, coupons, lessons, members,
 	}
 }
+
+// #region place-execute
 
 // Execute は予約を pending で保存し、同じ Tx で BookingPlaced を
 // outbox に書く。席の確保は配信の先で行う。
@@ -88,6 +98,10 @@ func (u *PlaceBooking) Execute(
 	}, nil
 }
 
+// #endregion
+
+// #region check-overlap
+
 // checkOverlap は同じ会員の有効な予約と時間帯が重なれば拒否する。
 // ここを同時に通った予約は、リポジトリの排他制約が止める。
 func (u *PlaceBooking) checkOverlap(
@@ -104,18 +118,18 @@ func (u *PlaceBooking) checkOverlap(
 	return nil
 }
 
+// #endregion
+
+// #region new-booking
+
 // newBooking は入力とレッスンの条件から集約を作る。
 // 入力の誤りは KindInvalid にする。
 func (u *PlaceBooking) newBooking(
 	ctx context.Context, in PlaceBookingInput,
 ) (*domain.Booking, error) {
-	member, err := ids.ParseID[ids.MemberMarker](in.MemberID)
+	member, lesson, err := parseIDs(in)
 	if err != nil {
-		return nil, invalid("会員 ID の形式が正しくありません", err)
-	}
-	lesson, err := ids.ParseID[ids.LessonMarker](in.LessonID)
-	if err != nil {
-		return nil, invalid("レッスン ID の形式が正しくありません", err)
+		return nil, err
 	}
 	exists, err := u.members.Exists(ctx, member)
 	if err != nil {
@@ -139,9 +153,6 @@ func (u *PlaceBooking) newBooking(
 	b, err := domain.NewBooking(
 		ids.NewID[ids.BookingMarker](),
 		member, lesson, slot, terms.Fee, u.clock)
-	if errors.Is(err, domain.ErrStartInPast) {
-		return nil, invalid("過去の時間帯は予約できません", err)
-	}
 	if err != nil {
 		return nil, translate(err)
 	}
@@ -154,6 +165,27 @@ func (u *PlaceBooking) newBooking(
 	}
 	return b, nil
 }
+
+// #endregion
+
+// parseIDs は入力の ID を値にする。形式の誤りは KindInvalid にする。
+func parseIDs(
+	in PlaceBookingInput,
+) (ids.MemberID, ids.LessonID, error) {
+	member, err := ids.ParseID[ids.MemberMarker](in.MemberID)
+	if err != nil {
+		return ids.MemberID{}, ids.LessonID{},
+			invalid("会員 ID の形式が正しくありません", err)
+	}
+	lesson, err := ids.ParseID[ids.LessonMarker](in.LessonID)
+	if err != nil {
+		return ids.MemberID{}, ids.LessonID{},
+			invalid("レッスン ID の形式が正しくありません", err)
+	}
+	return member, lesson, nil
+}
+
+// #region apply-coupon
 
 // applyCoupon はコードの Coupon で割引を計算して適用する。
 // コードが空なら何もしない。割引率は入力で受け取らない。
@@ -179,6 +211,8 @@ func (u *PlaceBooking) applyCoupon(
 	}
 	return nil
 }
+
+// #endregion
 
 // addOptions は選んだオプションを、レッスンの単価で明細にする。
 func addOptions(
