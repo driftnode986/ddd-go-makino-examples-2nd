@@ -1,0 +1,3 @@
+WARN delivery failed attempts=1 error="catalog: connection refused"
+ERROR delivery failed attempts=2 error="catalog: connection refused"
+原因が直った後: 配信 1 件, 未配信 0 件

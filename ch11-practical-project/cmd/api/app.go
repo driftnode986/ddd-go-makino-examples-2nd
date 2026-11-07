@@ -73,14 +73,7 @@ func newApp(cfg appConfig) *app {
 	}
 	relay := outbox.NewRelay(
 		relayStore, cfg.logger, outbox.RelayOptions{})
-	relay.Subscribe(bookingcontract.EventBookingPlaced,
-		catalogapp.Subscriber, outbox.On(seats.OnBookingPlaced))
-	relay.Subscribe(bookingcontract.EventBookingCancelled,
-		catalogapp.Subscriber, outbox.On(seats.OnBookingCancelled))
-	relay.Subscribe(catalogcontract.EventSeatReserved,
-		bookingapp.Subscriber, outbox.On(results.OnSeatReserved))
-	relay.Subscribe(catalogcontract.EventSeatRejected,
-		bookingapp.Subscriber, outbox.On(results.OnSeatRejected))
+	subscribe(relay, seats, results)
 
 	router := presentation.NewRouter(presentation.Deps{
 		Place: bookingapp.NewPlaceBooking(
@@ -95,3 +88,23 @@ func newApp(cfg appConfig) *app {
 	})
 	return &app{router: router, relay: relay}
 }
+
+// #region subscribe
+
+// subscribe はイベントの種類ごとに購読者を登録する。
+func subscribe(
+	relay *outbox.Relay,
+	seats *catalogapp.BookingEventHandler,
+	results *bookingapp.SeatResultHandler,
+) {
+	relay.Subscribe(bookingcontract.EventBookingPlaced,
+		catalogapp.Subscriber, outbox.On(seats.OnBookingPlaced))
+	relay.Subscribe(bookingcontract.EventBookingCancelled,
+		catalogapp.Subscriber, outbox.On(seats.OnBookingCancelled))
+	relay.Subscribe(catalogcontract.EventSeatReserved,
+		bookingapp.Subscriber, outbox.On(results.OnSeatReserved))
+	relay.Subscribe(catalogcontract.EventSeatRejected,
+		bookingapp.Subscriber, outbox.On(results.OnSeatRejected))
+}
+
+// #endregion

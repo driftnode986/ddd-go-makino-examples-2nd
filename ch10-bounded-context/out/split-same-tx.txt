@@ -1,0 +1,2 @@
+途中で止まった後: 席 0, SeatReserved 0 件
+再配信を2回した後: 席 1, SeatReserved 1 件, 版 1

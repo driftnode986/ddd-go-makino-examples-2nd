@@ -43,6 +43,8 @@ func (h *SeatResultHandler) OnSeatRejected(
 		(*domain.Booking).Reject)
 }
 
+// #region apply
+
 // apply は処理済みの記録と集約の保存を同じ Tx で行う。途中で止まれ
 // ばどちらも戻るので、再配信で処理をやり直せる。Confirm と Reject は
 // イベントを記録しないので、結果のイベントは書かない。
@@ -71,3 +73,5 @@ func (h *SeatResultHandler) apply(
 		return h.repo.Save(ctx, b)
 	})
 }
+
+// #endregion

@@ -1,0 +1,4 @@
+catalog/main.go:7:2: use of internal package
+example.com/workspace/booking/internal/domain not allowed
+pattern ./...: directory prefix . does not contain modules listed in
+go.work or their selected dependencies

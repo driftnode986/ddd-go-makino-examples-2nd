@@ -36,12 +36,16 @@ type LessonTerms struct {
 
 // #endregion
 
+// #region lesson-catalog
+
 // LessonCatalog はレッスンの条件を読む。
 type LessonCatalog interface {
 	// Terms はレッスンの条件を返す。無ければ ErrLessonNotFound を
 	// 返す。
 	Terms(ctx context.Context, id ids.LessonID) (LessonTerms, error)
 }
+
+// #endregion
 
 // MemberDirectory は会員の有無を答える。
 type MemberDirectory interface {

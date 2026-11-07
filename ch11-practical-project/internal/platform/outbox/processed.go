@@ -23,6 +23,8 @@ func NewProcessedEvents(pool *pgxpool.Pool) *ProcessedEvents {
 	return &ProcessedEvents{pool: pool}
 }
 
+// #region mark-processed
+
 // MarkProcessed は処理済みとして記録する。初めてのイベントなら
 // true、処理済みなら false を返す。一意キーは購読者とイベントの ID
 // である。ctx に Tx が無ければ txn.ErrNoTransaction を返す。
@@ -43,6 +45,8 @@ func (p *ProcessedEvents) MarkProcessed(
 	}
 	return rows == 1, nil
 }
+
+// #endregion
 
 // MemoryProcessedEvents は ProcessedEvents のテストダブルである。
 type MemoryProcessedEvents struct {

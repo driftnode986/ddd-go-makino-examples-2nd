@@ -19,6 +19,21 @@ Catalog を足し、イベントを outbox と配信処理で流します。予�
 - 変更: `place_booking.go` と `lessons.go`（`LessonTerms` を固定値でなく `LessonCatalog` から取る）、`main.go`（配信処理の起動と停止）
 - 削除: `LoggingOutbox`
 
+## 本文の失敗を動かす
+
+`steps/` に本文で動かした失敗があります。実行結果は `out/` にあり、`bash out/regen.sh` で作り直せます（Docker と jq が要ります。数分かかります）。
+
+- `steps/seatconflict`: 版の競合を満席と取り違える / 読み直す
+- `steps/dualwrite`: 保存とイベントが片方だけ成功する / outbox
+- `steps/splitreceiver`: 受け手の処理を Tx で分けると再配信で結果が変わる / 同じ Tx
+- `steps/orderbreak`: キャンセルの追い越し、失敗で埋まる枠、`SKIP LOCKED`
+- `steps/confirmdeadlock`: 確定の 40P01 が再配信で回復する（約1分）
+- `steps/stall`: 配信の失敗が `WARN` から `ERROR` に変わる
+
+```bash
+go test -v -tags=integration ./steps/splitreceiver/
+```
+
 ## 動かし方
 
 ```bash

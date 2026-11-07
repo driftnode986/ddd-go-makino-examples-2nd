@@ -1,0 +1,2 @@
+配信処理 A が取った行: booking.placed (連番 1)
+配信処理 B が取った行: booking.cancelled (連番 2)

@@ -28,6 +28,8 @@ func NewLessonCatalog(
 	return &LessonCatalog{reader: reader, location: location}
 }
 
+// #region terms
+
 // Terms はレッスンの条件を返す。
 func (c *LessonCatalog) Terms(
 	ctx context.Context, id ids.LessonID,
@@ -44,17 +46,9 @@ func (c *LessonCatalog) Terms(
 	if err != nil {
 		return application.LessonTerms{}, err
 	}
-	options := make(
-		[]application.OfferedOption, len(lesson.Options))
-	for i, o := range lesson.Options {
-		price, err := domain.NewMoney(o.UnitPriceYen)
-		if err != nil {
-			return application.LessonTerms{}, err
-		}
-		options[i] = application.OfferedOption{
-			Name:      o.Name,
-			UnitPrice: price,
-		}
+	options, err := toOffered(lesson.Options)
+	if err != nil {
+		return application.LessonTerms{}, err
 	}
 	return application.LessonTerms{
 		Start:    lesson.Start,
@@ -63,4 +57,23 @@ func (c *LessonCatalog) Terms(
 		Location: c.location,
 		Options:  options,
 	}, nil
+}
+
+// #endregion
+
+func toOffered(
+	in []contract.LessonOption,
+) ([]application.OfferedOption, error) {
+	options := make([]application.OfferedOption, len(in))
+	for i, o := range in {
+		price, err := domain.NewMoney(o.UnitPriceYen)
+		if err != nil {
+			return nil, err
+		}
+		options[i] = application.OfferedOption{
+			Name:      o.Name,
+			UnitPrice: price,
+		}
+	}
+	return options, nil
 }

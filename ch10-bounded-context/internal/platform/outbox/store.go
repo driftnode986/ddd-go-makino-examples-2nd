@@ -51,6 +51,8 @@ func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
 
+// #region append
+
 // Append はイベントを ctx の Tx の中で書き、集約ごとの連番を振る。
 // ctx に Tx が無ければ txn.ErrNoTransaction を返す。
 func (s *Store) Append(
@@ -80,6 +82,8 @@ func (s *Store) Append(
 	}
 	return nil
 }
+
+// #endregion
 
 // Deliverable は集約ごとに未配信の先頭を、失敗の少ない順に limit
 // 件返す。失敗の回数が同じなら古い順である。

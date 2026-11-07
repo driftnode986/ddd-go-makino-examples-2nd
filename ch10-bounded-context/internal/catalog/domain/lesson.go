@@ -68,9 +68,10 @@ func (l *Lesson) Equal(other *Lesson) bool {
 	return other != nil && l.id.Equal(other.id)
 }
 
-// ReserveSeat は予約の席を確保する。同じ予約で2回呼んでも席は
-// 1つで、イベントも1回だけ記録する。満席なら SeatRejected を
-// 記録し、ErrLessonFull を返す。
+// #region reserve-seat
+
+// ReserveSeat は予約の席を確保する。同じ予約なら席は増やさない。
+// 満席なら SeatRejected を記録し、ErrLessonFull を返す。
 func (l *Lesson) ReserveSeat(
 	booking ids.BookingID, clk Clock,
 ) error {
@@ -100,6 +101,10 @@ func (l *Lesson) ReserveSeat(
 	return nil
 }
 
+// #endregion
+
+// #region release-seat
+
 // ReleaseSeat は予約の席を戻す。席を持たない予約では何もしない。
 // 同じ予約で2回呼んでも1回だけ効く。
 func (l *Lesson) ReleaseSeat(booking ids.BookingID) error {
@@ -113,6 +118,8 @@ func (l *Lesson) ReleaseSeat(booking ids.BookingID) error {
 	}
 	return nil
 }
+
+// #endregion
 
 // PullEvents は記録したイベントを取り出し、集約から消す。
 func (l *Lesson) PullEvents() []DomainEvent {

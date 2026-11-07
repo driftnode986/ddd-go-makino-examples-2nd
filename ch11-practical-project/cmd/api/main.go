@@ -43,20 +43,18 @@ func main() {
 	}
 }
 
+// #region run
+
+// run は配信処理とサーバーを起動し、シグナルで両方を止める。
 func run(logger *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(),
 		os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	url := cmp.Or(os.Getenv("DATABASE_URL"), defaultDatabaseURL)
-	pool, err := pgxpool.New(ctx, url)
+	pool, err := connect(ctx)
 	if err != nil {
-		return fmt.Errorf("connect: %w", err)
+		return err
 	}
 	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping: %w", err)
-	}
 
 	a := newApp(appConfig{
 		pool:   pool,
@@ -66,15 +64,7 @@ func run(logger *slog.Logger) error {
 	relayDone := make(chan error, 1)
 	go func() { relayDone <- a.relay.Run(ctx) }()
 
-	server := &http.Server{
-		Addr:              cmp.Or(os.Getenv("ADDR"), defaultAddr),
-		Handler:           a.router,
-		ReadHeaderTimeout: 2 * time.Second,
-		ReadTimeout:       3 * time.Second,
-		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
-	err = serve(ctx, server, logger)
+	err = serve(ctx, newServer(a.router), logger)
 	// サーバーが先に止まっても配信処理を止め、終わるまで待つ。
 	// 接続を閉じるのはその後である
 	stop()
@@ -83,6 +73,32 @@ func run(logger *slog.Logger) error {
 		err = errors.Join(err, relayErr)
 	}
 	return err
+}
+
+// #endregion
+
+func connect(ctx context.Context) (*pgxpool.Pool, error) {
+	url := cmp.Or(os.Getenv("DATABASE_URL"), defaultDatabaseURL)
+	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping: %w", err)
+	}
+	return pool, nil
+}
+
+func newServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              cmp.Or(os.Getenv("ADDR"), defaultAddr),
+		Handler:           handler,
+		ReadHeaderTimeout: 2 * time.Second,
+		ReadTimeout:       3 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 }
 
 // #region serve

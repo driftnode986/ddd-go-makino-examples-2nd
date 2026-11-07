@@ -1,0 +1,2 @@
+catalog/main.go:8:2: use of internal package booking/internal/domain
+not allowed

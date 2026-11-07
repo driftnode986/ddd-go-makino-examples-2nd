@@ -10,6 +10,8 @@ const (
 	EventBookingCancelled = "booking.cancelled"
 )
 
+// #region booking-placed
+
 // BookingPlaced は予約を受け付けたことを伝える統合イベントである。
 type BookingPlaced struct {
 	BookingID  string    `json:"booking_id"`
@@ -17,6 +19,8 @@ type BookingPlaced struct {
 	LessonID   string    `json:"lesson_id"`
 	OccurredAt time.Time `json:"occurred_at"`
 }
+
+// #endregion
 
 // BookingCancelled は確定済みの予約を取り消したことを伝える
 // 統合イベントである。

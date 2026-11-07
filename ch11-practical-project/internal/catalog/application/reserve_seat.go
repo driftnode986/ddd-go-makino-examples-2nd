@@ -35,6 +35,8 @@ func NewReserveSeat(
 	return &ReserveSeat{repo, outbox, processed, tx, clock}
 }
 
+// #region execute
+
 // Execute は処理済みの記録・席の保存・結果のイベントを同じ Tx で
 // 書く。処理済みのイベントなら何もせず成功を返す。
 //
@@ -66,6 +68,10 @@ func (u *ReserveSeat) Execute(
 	return outcome
 }
 
+// #endregion
+
+// #region reserve
+
 // reserve は1回の試行である。1つ目の戻り値は拒否の理由で、
 // Tx を戻さない。2つ目の戻り値は Tx を戻すエラーである。
 func (u *ReserveSeat) reserve(
@@ -96,3 +102,5 @@ func (u *ReserveSeat) reserve(
 	}
 	return nil, u.outbox.Append(ctx, l.PullEvents()...)
 }
+
+// #endregion

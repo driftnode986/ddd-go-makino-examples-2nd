@@ -88,6 +88,8 @@ func (r *Relay) Subscribe(
 		subscription{name: name, handler: h})
 }
 
+// #region run
+
 // Run は ctx が終わるまで配信を続け、ctx.Err() を返す。DB の障害で
 // は止まらず、記録して次の周期にやり直す。
 func (r *Relay) Run(ctx context.Context) error {
@@ -110,9 +112,12 @@ func (r *Relay) Run(ctx context.Context) error {
 	}
 }
 
-// RunOnce は集約ごとに未配信の先頭を1回ずつ配り、配信済みにした
-// 件数を返す。受け手の失敗はエラーにせず、記録して次の周期に
-// 再配信する。後の連番はそれまで候補に出ない。
+// #endregion
+
+// #region run-once
+
+// RunOnce は集約ごとに未配信の先頭を配り、配信済みの件数を返す。
+// 受け手の失敗はエラーにせず、記録して次の周期に再配信する。
 func (r *Relay) RunOnce(ctx context.Context) (int, error) {
 	deliveries, err := r.store.Deliverable(
 		ctx, r.options.BatchSize)
@@ -142,6 +147,8 @@ func (r *Relay) RunOnce(ctx context.Context) (int, error) {
 	return published, errors.Join(errs...)
 }
 
+// #endregion
+
 func (r *Relay) deliver(ctx context.Context, d Delivery) error {
 	for _, s := range r.subscribers[d.EventType] {
 		if err := s.handler(ctx, d); err != nil {
@@ -150,6 +157,8 @@ func (r *Relay) deliver(ctx context.Context, d Delivery) error {
 	}
 	return nil
 }
+
+// #region record-failure
 
 // recordFailure は失敗を残す。許容時間を超えた遅れはエラーの水準に
 // 上げる。予約は pending のまま見え、再配信は続く。
@@ -173,3 +182,5 @@ func (r *Relay) recordFailure(
 			"event_id", d.EventID, "error", err)
 	}
 }
+
+// #endregion

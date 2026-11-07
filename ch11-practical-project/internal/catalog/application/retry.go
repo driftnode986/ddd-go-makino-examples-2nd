@@ -11,6 +11,8 @@ import (
 // ら競合のまま返し、配信処理の再配信に任せる。
 const maxAttempts = 5
 
+// #region retry
+
 // retryOnConflict は版の競合のとき attempt をやり直す。attempt は
 // 毎回 Tx を開き直して読み直す。失敗した集約は持ち越さない。
 func retryOnConflict(
@@ -28,3 +30,5 @@ func retryOnConflict(
 	}
 	return err
 }
+
+// #endregion

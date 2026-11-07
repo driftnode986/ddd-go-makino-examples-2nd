@@ -1,0 +1,3 @@
+SeatRejected: 2 件
+未配信の先頭: 連番 2, 失敗 2 回
+原因: booking: invalid status transition: reject from "rejected"

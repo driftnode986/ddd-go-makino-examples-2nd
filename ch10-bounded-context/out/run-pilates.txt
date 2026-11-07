@@ -1,0 +1,4 @@
+1人目: confirmed
+2人目: rejected
+1人目をキャンセル
+2人目がもう一度: confirmed

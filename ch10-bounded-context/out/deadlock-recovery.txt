@@ -1,0 +1,3 @@
+1回目: 約 1 秒で失敗, 状態 pending, 処理済みの記録 0 件
+原因: booking: ERROR: deadlock detected (SQLSTATE 40P01)
+再配信: 状態 confirmed, WARN のログ 1 行

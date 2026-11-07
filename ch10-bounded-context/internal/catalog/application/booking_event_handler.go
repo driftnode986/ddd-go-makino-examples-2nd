@@ -22,6 +22,8 @@ func NewBookingEventHandler(
 	return &BookingEventHandler{reserve, release}
 }
 
+// #region on-booking-placed
+
 // OnBookingPlaced は席を確保する。満席とレッスンが無いことは拒否の
 // イベントとしてコミットされているので、配信の失敗にしない。
 func (h *BookingEventHandler) OnBookingPlaced(
@@ -44,6 +46,8 @@ func (h *BookingEventHandler) OnBookingPlaced(
 	}
 	return err
 }
+
+// #endregion
 
 // OnBookingCancelled は席を戻す。
 func (h *BookingEventHandler) OnBookingCancelled(
