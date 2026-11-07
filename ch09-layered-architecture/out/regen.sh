@@ -15,14 +15,11 @@ logs order-wrong TestRecoveryOutside ./steps/middlewareorder/
 logs order-right TestRecoveryInside ./steps/middlewareorder/
 logs shutdown 'TestCloseDropsRunningRequest|TestShutdownWaitsForRunningRequest' ./steps/shutdown/
 logs server-timeouts 'TestReadHeaderTimeoutDoesNotLimitBody|TestReadTimeoutLimitsBody|TestWriteTimeoutDoesNotCancelHandler' ./steps/servertimeouts/
-logs json-v2 TestDuplicateName ./steps/jsonv2/
-go build ./steps/testdata/samename 2>&1 | grep -v '^#' | grep redeclared | sed 's|^steps/testdata/samename/||' | shape >out/samename.txt
-golangci-lint run --no-config --allow-parallel-runners ./steps/encodeaggregate/ 2>&1 | grep -E "SA9005" | sed 's|^.*steps/|steps/|' | shape >out/encode-lint.txt
 
-# 実際の import（テストを除く）。同じ module の中だけを層ごとに出す。
+# 実際の import（テストを除く）。層と ids だけを出す。
 list_imports() {
 	for pkg in "$@"; do
-		mine=$(go list -f '{{join .Imports "\n"}}' "./internal/booking/$pkg" | grep '^example.com/trainingbooking/' | grep -v sqlcgen | sed 's|example.com/trainingbooking/internal/booking/||; s|example.com/trainingbooking/internal/||' | tr '\n' ' ')
+		mine=$(go list -f '{{join .Imports "\n"}}' "./internal/booking/$pkg" | grep '^example.com/trainingbooking/' | grep -v sqlcgen | grep -v platform | sed 's|example.com/trainingbooking/internal/booking/||; s|example.com/trainingbooking/internal/||' | tr '\n' ' ')
 		echo "$pkg -> $mine"
 	done
 }
@@ -38,7 +35,6 @@ violation() { # 名前 ファイル パッケージ名 import
 	golangci-lint run --allow-parallel-runners "./$(dirname "$f")/" 2>&1 | grep -E "\(depguard\)" | sed 's|^[^ ]*internal/booking/||' | shape >>"out/$1.txt"
 	rm -f "$f"
 }
-violation import-http internal/booking/domain/zz_http.go domain net/http
 violation import-repo internal/booking/presentation/zz_repo.go presentation example.com/trainingbooking/internal/booking/infrastructure/postgres
 violation import-cycle internal/booking/domain/zz_cycle.go domain example.com/trainingbooking/internal/booking/application
 
@@ -61,7 +57,6 @@ post -X POST localhost:8080/bookings -H 'Content-Type: application/json' -d "$bo
 id=$(grep -o '"id":"[^"]*"' out/run-post.txt | cut -d'"' -f4)
 post -X POST localhost:8080/bookings -H 'Content-Type: application/json' -d "$body" >out/run-dup.txt
 curl -s "localhost:8080/members/$member/bookings" | jq . >out/run-list.txt
-post -X POST localhost:8080/bookings -H 'Content-Type: application/json' -d '{"member_id":"'$member'","lesson_id":"'$lesson'","fee_yen":1}' >out/run-unknown.txt
 post -X POST "localhost:8080/bookings/$id/cancel" >out/run-cancel.txt
 jq -c 'del(.time,.duration)' "$log" | grep -E '"event recorded"|"status":201' | shape >out/run-log.txt
 

@@ -52,8 +52,6 @@ func main() {
 	}
 }
 
-// #region run
-
 func run(logger *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(),
 		os.Interrupt, syscall.SIGTERM)
@@ -73,15 +71,22 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	server := &http.Server{
+	return serve(ctx, newServer(router), logger)
+}
+
+// #region new-server
+
+// newServer はタイムアウトを指定したサーバーを返す。本文の読み取りは
+// requestTimeout より先に止める。
+func newServer(handler http.Handler) *http.Server {
+	return &http.Server{
 		Addr:              cmp.Or(os.Getenv("ADDR"), defaultAddr),
-		Handler:           router,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
+		Handler:           handler,
+		ReadHeaderTimeout: 2 * time.Second,
+		ReadTimeout:       3 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	return serve(ctx, server, logger)
 }
 
 // #endregion

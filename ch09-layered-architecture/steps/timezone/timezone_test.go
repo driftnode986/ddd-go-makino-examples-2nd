@@ -21,8 +21,8 @@ func TestSameInstantEncodesDifferently(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("TZ=Asia/Tokyo の環境: %s", inJST)
-	t.Logf("TZ=UTC の環境:        %s", inUTC)
+	t.Logf("JST の値:         %s", inJST)
+	t.Logf("UTC に変換した値: %s", inUTC)
 	if string(inJST) == string(inUTC) {
 		t.Fatal("同じ文字列になった")
 	}

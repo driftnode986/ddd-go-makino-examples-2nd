@@ -11,8 +11,6 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
-// #region use-case-interfaces
-
 // placeBooking は POST /bookings が使うユースケースである。
 type placeBooking interface {
 	Execute(
@@ -27,6 +25,8 @@ type cancelBooking interface {
 		ctx context.Context, in application.CancelBookingInput,
 	) (application.CancelBookingOutput, error)
 }
+
+// #region member-bookings
 
 // memberBookings は GET /members/{id}/bookings が使う
 // 読み取りである。

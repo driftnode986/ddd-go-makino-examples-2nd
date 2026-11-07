@@ -156,11 +156,10 @@ func statusOf(kind application.Kind) int {
 
 // #region level-of
 
-// levelOf は利用者の切断と期限切れの水準を下げる。
-// サーバーの障害と分けて見るためである。
+// levelOf は利用者の切断のログレベルを下げる。期限切れは
+// DB が応答しない場合を含むので、下げずに障害として見る。
 func levelOf(err error) slog.Level {
-	if errors.Is(err, context.Canceled) ||
-		errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.Canceled) {
 		return slog.LevelWarn
 	}
 	return slog.LevelError

@@ -29,6 +29,8 @@ type placeBookingRequest struct {
 	CouponCode string          `json:"coupon_code"`
 }
 
+// #endregion
+
 func (r placeBookingRequest) input() application.PlaceBookingInput {
 	options := make([]application.OptionInput, len(r.Options))
 	for i, o := range r.Options {
@@ -44,8 +46,6 @@ func (r placeBookingRequest) input() application.PlaceBookingInput {
 		CouponCode: r.CouponCode,
 	}
 }
-
-// #endregion
 
 // bookingResponse は予約とキャンセルの結果である。
 type bookingResponse struct {
@@ -76,8 +76,6 @@ type bookingListResponse struct {
 	Bookings []bookingItem `json:"bookings"`
 }
 
-// #region list-response
-
 func toListResponse(
 	views []application.BookingView, loc *time.Location,
 ) bookingListResponse {
@@ -95,8 +93,6 @@ func toListResponse(
 	}
 	return bookingListResponse{Bookings: items}
 }
-
-// #endregion
 
 func toOptionItems(
 	views []application.BookingOptionView,

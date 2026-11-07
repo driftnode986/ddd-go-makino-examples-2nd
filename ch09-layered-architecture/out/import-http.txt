@@ -1,3 +1,0 @@
-go build の終了コード: 0
-domain/zz_http.go:3:8: import 'net/http' is not allowed from list
-'domain-layer': domain は HTTP を知りません (depguard)

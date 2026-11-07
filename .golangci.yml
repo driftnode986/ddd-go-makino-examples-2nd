@@ -118,6 +118,8 @@ linters:
               desc: domain から pgx を import できません
             - pkg: net/http$
               desc: domain は HTTP を知りません
+            - pkg: database/sql
+              desc: domain から DB を使えません
         # contract は他のコンテキストに公開する型だけを置きます。
         # 内側のレイヤーに依存すると、相手に中身が漏れます。
         contract-layer:
@@ -183,6 +185,22 @@ linters:
               desc: presentation から infrastructure を import できません
             - pkg: github.com/jackc/pgx/
               desc: presentation から pgx を import できません
+            - pkg: database/sql
+              desc: presentation から DB を使えません
+            - pkg: example.com/trainingbooking/internal/platform/txn
+              desc: presentation は Tx を知りません
+        # infrastructure は外側の presentation を知りません。
+        infrastructure-layer:
+          list-mode: lax
+          files:
+            - "**/internal/*/infrastructure/**"
+          deny:
+            - pkg: example.com/trainingbooking/internal/booking/presentation
+              desc: infrastructure から presentation を import できません
+            - pkg: example.com/trainingbooking/internal/catalog/presentation
+              desc: infrastructure から presentation を import できません
+            - pkg: example.com/trainingbooking/internal/identity/presentation
+              desc: infrastructure から presentation を import できません
         # application は実装を知りません。テストは実装を組み立てて使います。
         application-layer:
           list-mode: lax
@@ -224,6 +242,8 @@ linters:
               desc: application から pgx を import できません
             - pkg: net/http$
               desc: application は HTTP を知りません
+            - pkg: database/sql
+              desc: application から DB を使えません
   exclusions:
     generated: strict
     paths:

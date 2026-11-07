@@ -113,10 +113,12 @@ func withRecovery(h *handlers, next http.Handler) http.Handler {
 					"panic", v,
 					"stack", string(debug.Stack()),
 				)
-				// 応答を書き始めていれば、ステータスは変えられない
-				if rec.status == 0 {
-					h.writeInternal(rec, r)
+				// 書き始めた応答は 500 にできない。途中の本文を
+				// 正常に見せないよう、接続を切って中断する
+				if rec.status != 0 {
+					panic(http.ErrAbortHandler)
 				}
+				h.writeInternal(rec, r)
 			}()
 			next.ServeHTTP(rec, r)
 		})

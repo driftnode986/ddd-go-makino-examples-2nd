@@ -1,5 +1,4 @@
 domain -> ids
 application -> domain ids
-infrastructure/postgres -> application domain ids platform/txn
-platform/txn/pgtx
-presentation -> application ids platform/logging
+infrastructure/postgres -> application domain ids
+presentation -> application ids

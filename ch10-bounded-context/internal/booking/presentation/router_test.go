@@ -325,10 +325,15 @@ func TestUnknownError_IsInternal(t *testing.T) {
 }
 
 // 利用者の切断と期限切れは 500 のままで、ログの水準を下げる。
-func TestContextErrors_AreLoggedAsWarning(t *testing.T) {
-	for _, cause := range []error{
-		context.Canceled, context.DeadlineExceeded,
+func TestContextErrors_LogLevel(t *testing.T) {
+	for _, c := range []struct {
+		cause error
+		want  string
+	}{
+		{context.Canceled, "WARN"},
+		{context.DeadlineExceeded, "ERROR"},
 	} {
+		cause := c.cause
 		t.Run(cause.Error(), func(t *testing.T) {
 			s := stubUseCases{place: func(
 				application.PlaceBookingInput,
@@ -346,7 +351,7 @@ func TestContextErrors_AreLoggedAsWarning(t *testing.T) {
 				t.Errorf("status = %d", rec.Code)
 			}
 			levels := levelsOf(t, &buf, "request failed")
-			if len(levels) != 1 || levels[0] != "WARN" {
+			if len(levels) != 1 || levels[0] != c.want {
 				t.Errorf("levels = %v", levels)
 			}
 		})
@@ -477,7 +482,7 @@ func TestGetBookings_StartIsInLocation(t *testing.T) {
 	}
 }
 
-// 期限が来ると ctx が終わり、500 と WARN のログになる。
+// 期限が来ると ctx が終わり、500 と ERROR のログになる。
 func TestTimeout_EndsTheRequest(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
@@ -492,7 +497,7 @@ func TestTimeout_EndsTheRequest(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	levels := levelsOf(t, &buf, "request failed")
-	if len(levels) != 1 || levels[0] != "WARN" {
+	if len(levels) != 1 || levels[0] != "ERROR" {
 		t.Errorf("levels = %v", levels)
 	}
 }

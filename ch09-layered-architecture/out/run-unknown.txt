@@ -1,3 +1,0 @@
-HTTP/1.1 400 Bad Request
-X-Request-Id: 01a1b331-0629-7f53-b31b-5211b126dbdd
-{"kind":"invalid","message":"リクエストの JSON が正しくありません"}

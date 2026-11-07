@@ -69,8 +69,8 @@ func run(logger *slog.Logger) error {
 	server := &http.Server{
 		Addr:              cmp.Or(os.Getenv("ADDR"), defaultAddr),
 		Handler:           a.router,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
+		ReadTimeout:       3 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
