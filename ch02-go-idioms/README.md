@@ -8,7 +8,7 @@
 - `zerovalue/` 公開フィールドと非公開フィールドの違い。非公開でもゼロ値は作れるので、受け取る側で止めること
 - `domainerror/` sentinel と型つきエラー。`errors.Is` と `errors.AsType` での判定
 - `receiver/` 値レシーバとポインタレシーバ。getter の名前
-- `generics/` Go 1.27 のジェネリックメソッドと、インターフェースで差し替えられないこと
+- `generics/` Go 1.27 のジェネリックメソッドと、インターフェースで差し替えられないこと（`Store`）
 - `steps/` 失敗を見せるコード。`steps/testdata` はわざとコンパイルできないコードです
 - `out/` 本に載せた実行結果。`bash out/regen.sh` で作り直せます
 
@@ -29,6 +29,7 @@ ok  	example.com/trainingbooking/generics
 ok  	example.com/trainingbooking/receiver
 ok  	example.com/trainingbooking/smallinterface/reminder
 ok  	example.com/trainingbooking/steps/setterstock/service
+ok  	example.com/trainingbooking/steps/wideinterface
 ok  	example.com/trainingbooking/zerovalue
 ```
 

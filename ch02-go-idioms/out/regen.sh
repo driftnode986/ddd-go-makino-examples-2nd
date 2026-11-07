@@ -13,12 +13,10 @@ build() { # 名前 ディレクトリ
 }
 build widefake widefake
 go list -f '{{.ImportPath}}: {{.Imports}}' ./smallinterface/... | sed 's|^example.com/trainingbooking/smallinterface/||' | shape >out/imports.txt
-logs public TestPublicField_AcceptsNegative ./zerovalue/
-logs same-package TestSamePackage_CanWriteUnexported ./zerovalue/
+logs public TestPublicField_AcceptsEmpty ./zerovalue/
 logs zero TestZeroValue_BufferAndNickname ./zerovalue/
 logs compare TestTake_CompareSentinel ./domainerror/
 logs typed TestTake_TypedError ./domainerror/
-build valuecard valuecard
 logs bypass TestBypass ./steps/setterstock/service/
 build genericmethodset genericmethodset
 # インターフェースのメソッドに型引数を書くと構文エラーになる。

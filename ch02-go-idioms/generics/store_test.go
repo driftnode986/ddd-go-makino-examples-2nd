@@ -6,19 +6,15 @@ import (
 	"example.com/trainingbooking/generics"
 )
 
-// #region get
-
-func TestCache_GetWithTypeArgument(t *testing.T) {
-	c := generics.NewCache()
-	if err := c.Put("count", 7); err != nil {
+func TestStore_FindWithTypeArgument(t *testing.T) {
+	s := generics.NewStore()
+	if err := s.Put("count", 7); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 
-	got, err := c.Get[int]("count")
+	got, err := s.Find[int]("count")
 
 	if err != nil || got != 7 {
 		t.Fatalf("got = %d, err = %v", got, err)
 	}
 }
-
-// #endregion

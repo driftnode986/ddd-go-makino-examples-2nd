@@ -9,9 +9,9 @@ var ErrInvalid = errors.New("invalid value")
 
 // #region public
 
-// PublicPoints はフィールドが公開なので、負の値も書き込める。
-type PublicPoints struct {
-	Balance int
+// PublicNickname はフィールドが公開なので、空の値も書き込める。
+type PublicNickname struct {
+	Value string
 }
 
 // #endregion

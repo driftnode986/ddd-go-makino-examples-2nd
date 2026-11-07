@@ -2,12 +2,8 @@
 // 型引数を書く。
 package main
 
-// #region decl
-
-type getter interface {
-	Get[T any](key string) (T, error)
+type finder interface {
+	Find[T any](key string) (T, error)
 }
-
-// #endregion
 
 func main() {}

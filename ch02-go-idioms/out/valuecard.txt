@@ -1,3 +1,0 @@
-main.go:15:8: cannot use receiver.Card{} (value of struct type
-receiver.Card) as charger value in argument to topUp: receiver.Card
-does not implement charger (method Charge has pointer receiver)

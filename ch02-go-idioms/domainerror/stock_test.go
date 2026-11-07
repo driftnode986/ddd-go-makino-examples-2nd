@@ -7,11 +7,20 @@ import (
 	"example.com/trainingbooking/domainerror"
 )
 
+func stock(t *testing.T, count int) *domainerror.Stock {
+	t.Helper()
+	s, err := domainerror.NewStock(count)
+	if err != nil {
+		t.Fatalf("NewStock: %v", err)
+	}
+	return s
+}
+
 // #region compare
 
 // %w で包むと == では一致しない。errors.Is は包みをたどる。
 func TestTake_CompareSentinel(t *testing.T) {
-	err := domainerror.NewStock(0).Take(1)
+	err := stock(t, 0).Take(1)
 
 	t.Logf("err = %v", err)
 	t.Logf("err == ErrSoldOut: %v", err == domainerror.ErrSoldOut)
@@ -27,7 +36,7 @@ func TestTake_CompareSentinel(t *testing.T) {
 
 // 型つきエラーは errors.AsType で値を取り出す。
 func TestTake_TypedError(t *testing.T) {
-	err := domainerror.NewStock(2).Take(3)
+	err := stock(t, 2).Take(3)
 
 	got, ok := errors.AsType[*domainerror.ShortageError](err)
 
@@ -38,3 +47,17 @@ func TestTake_TypedError(t *testing.T) {
 }
 
 // #endregion
+
+func TestStock_RejectsInvalidQuantity(t *testing.T) {
+	if _, err := domainerror.NewStock(-1); !errors.Is(
+		err, domainerror.ErrInvalidQuantity) {
+		t.Fatalf("NewStock(-1): %v", err)
+	}
+	s := stock(t, 2)
+	for _, n := range []int{0, -5} {
+		if err := s.Take(n); !errors.Is(
+			err, domainerror.ErrInvalidQuantity) {
+			t.Fatalf("Take(%d): %v", n, err)
+		}
+	}
+}

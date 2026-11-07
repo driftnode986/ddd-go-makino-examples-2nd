@@ -1,16 +1,16 @@
-// わざとコンパイルできないコード。型引数のない Get を要求する。
+// わざとコンパイルできないコード。型引数のない Find を要求する。
 package main
 
 import "example.com/trainingbooking/generics"
 
 // #region call
 
-type intGetter interface {
-	Get(key string) (int, error)
+type intFinder interface {
+	Find(key string) (int, error)
 }
 
 func main() {
-	var _ intGetter = generics.NewCache()
+	var _ intFinder = generics.NewStore()
 }
 
 // #endregion

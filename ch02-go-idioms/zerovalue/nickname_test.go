@@ -10,9 +10,9 @@ import (
 
 // #region public
 
-func TestPublicField_AcceptsNegative(t *testing.T) {
-	p := zerovalue.PublicPoints{Balance: -100}
-	t.Logf("Balance = %d", p.Balance)
+func TestPublicField_AcceptsEmpty(t *testing.T) {
+	n := zerovalue.PublicNickname{Value: ""}
+	t.Logf("Value = %q", n.Value)
 }
 
 // #endregion
