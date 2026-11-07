@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	defaultInterval   = 200 * time.Millisecond
-	defaultBatchSize  = 100
-	defaultStallAfter = 5 * time.Minute
+	defaultInterval        = 200 * time.Millisecond
+	defaultBatchSize       = 100
+	defaultStallAfter      = 5 * time.Minute
+	defaultDeliveryTimeout = 5 * time.Second
 )
 
 // Handler は配信されたイベントを処理する。処理済みの判定は受け手が
@@ -50,6 +51,9 @@ type RelayOptions struct {
 	// StallAfter は配信の遅れを障害として記録するまでの時間である。
 	// 超えても再配信は止めない。
 	StallAfter time.Duration
+	// DeliveryTimeout は1件の配信の期限である。受け手が返らなくても
+	// 別の集約の配信を止めない。
+	DeliveryTimeout time.Duration
 }
 
 type subscription struct {
@@ -72,6 +76,8 @@ func NewRelay(
 	opts.Interval = cmp.Or(opts.Interval, defaultInterval)
 	opts.BatchSize = cmp.Or(opts.BatchSize, defaultBatchSize)
 	opts.StallAfter = cmp.Or(opts.StallAfter, defaultStallAfter)
+	opts.DeliveryTimeout = cmp.Or(
+		opts.DeliveryTimeout, defaultDeliveryTimeout)
 	return &Relay{
 		store:       store,
 		logger:      logger,
@@ -150,6 +156,9 @@ func (r *Relay) RunOnce(ctx context.Context) (int, error) {
 // #endregion
 
 func (r *Relay) deliver(ctx context.Context, d Delivery) error {
+	ctx, cancel := context.WithTimeout(
+		ctx, r.options.DeliveryTimeout)
+	defer cancel()
 	for _, s := range r.subscribers[d.EventType] {
 		if err := s.handler(ctx, d); err != nil {
 			return fmt.Errorf("%s: %w", s.name, err)

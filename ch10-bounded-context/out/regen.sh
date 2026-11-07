@@ -25,6 +25,7 @@ sed -n '/^-- name: InsertEvent /,/;$/p' "$q" | grep -v '^-- name' >out/sql-inser
 sed -n '/^-- name: ListDeliverable /,/;$/p' "$q" | grep -v '^-- name' >out/sql-deliverable.sql
 sed -n '/^CREATE TABLE outbox /,/^);/p' "$m" >out/sql-outbox.sql
 sed -n '/^CREATE TABLE processed_events /,/^);/p' "$m" >out/sql-processed.sql
+sed -n '/^-- name: MarkProcessed /,/;$/p' "$q" | grep -v '^-- name' >out/sql-mark-processed.sql
 
 logs seat-as-full TestConflictTreatedAsFull ./steps/seatconflict/
 logs seat-retried TestConflictIsRetried ./steps/seatconflict/
@@ -38,6 +39,8 @@ logs split-same-tx TestSameTransaction ./steps/splitreceiver/
 logs skip-locked TestSkipLockedOvertakes ./steps/orderbreak/
 logs cancel-first TestCancelBeforePlaced ./steps/orderbreak/
 logs batch TestFailuresFillTheBatch ./steps/orderbreak/
+logs skip-heads TestSkipLockedOnHeads ./steps/orderbreak/
+logs same-sequence TestSameSequenceWithoutLock ./steps/orderbreak/
 logs stall TestWarnThenError ./steps/stall/
 logs deadlock-recovery TestRedeliveryRecoversFromDeadlock ./steps/confirmdeadlock/
 logs deadlock-race TestConfirmWithoutLockRecovers ./steps/confirmdeadlock/
@@ -118,7 +121,7 @@ curl -si -X POST "$base/bookings" -H 'Content-Type: application/json' \
 	-d "{\"member_id\":\"$m2\",\"lesson_id\":\"$missing\"}" | tr -d '\r' | grep -E '^HTTP/|^\{' | shape >out/run-missing.txt
 
 docker compose exec -T postgres psql -U dev -d trainingbooking -c \
-	"SELECT event_type, aggregate_type AS aggregate, sequence AS seq, published_at IS NOT NULL AS published FROM outbox WHERE id > 2 ORDER BY id" | sed '$d' | sed '$d' | shape >out/run-outbox.txt
+	"SELECT event_type, aggregate_type AS aggregate, right(aggregate_id::text, 4) AS agg_id, sequence AS seq FROM outbox WHERE id > 2 ORDER BY id" | sed '$d' | sed '$d' | shape >out/run-outbox.txt
 
 kill -TERM "$pid"
 wait "$pid"

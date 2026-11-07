@@ -2,10 +2,8 @@ package application
 
 import (
 	"context"
-	"errors"
 
 	bookingcontract "example.com/trainingbooking/internal/booking/contract"
-	"example.com/trainingbooking/internal/catalog/domain"
 	"example.com/trainingbooking/internal/ids"
 )
 
@@ -24,8 +22,8 @@ func NewBookingEventHandler(
 
 // #region on-booking-placed
 
-// OnBookingPlaced は席を確保する。満席とレッスンが無いことは拒否の
-// イベントとしてコミットされているので、配信の失敗にしない。
+// OnBookingPlaced は席を確保する。満席とレッスンが無いことは、拒否の
+// イベントをコミットした成功である。エラーだけを配信の失敗にする。
 func (h *BookingEventHandler) OnBookingPlaced(
 	ctx context.Context,
 	eventID string,
@@ -35,15 +33,11 @@ func (h *BookingEventHandler) OnBookingPlaced(
 	if err != nil {
 		return err
 	}
-	err = h.reserve.Execute(ctx, ReserveSeatInput{
+	_, err = h.reserve.Execute(ctx, ReserveSeatInput{
 		EventID:   eventID,
 		LessonID:  lesson,
 		BookingID: booking,
 	})
-	if errors.Is(err, domain.ErrLessonFull) ||
-		errors.Is(err, domain.ErrNotFound) {
-		return nil
-	}
 	return err
 }
 

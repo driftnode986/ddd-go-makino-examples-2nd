@@ -16,8 +16,10 @@ import (
 	"example.com/trainingbooking/internal/ids"
 	"example.com/trainingbooking/internal/platform/dbtest"
 	"example.com/trainingbooking/internal/platform/outbox"
+	"example.com/trainingbooking/internal/platform/outbox/sqlcgen"
 	"example.com/trainingbooking/internal/platform/txn/pgtx"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -56,11 +58,13 @@ func message(aggregate, name string) outbox.Message {
 	}
 }
 
-// #region skip-locked
+// #region claim
 
 const claim = `SELECT event_type, sequence FROM outbox
 	WHERE published_at IS NULL ORDER BY id LIMIT 1
 	FOR UPDATE SKIP LOCKED`
+
+// #endregion
 
 // 2本の配信処理が SKIP LOCKED で1行ずつ取ると、同じ集約の連番2を
 // 先に取れる。連番1の Tx が終わる前に配信すれば順序が逆になる。
@@ -93,17 +97,123 @@ func TestSkipLockedOvertakes(t *testing.T) {
 	}
 }
 
-// #endregion
-
 func take(t *testing.T, tx pgx.Tx) (string, int64) {
+	t.Helper()
+	return takeWith(t, tx, claim)
+}
+
+func takeWith(t *testing.T, tx pgx.Tx, sql string) (string, int64) {
 	t.Helper()
 	var name string
 	var seq int64
-	err := tx.QueryRow(t.Context(), claim).Scan(&name, &seq)
+	err := tx.QueryRow(t.Context(), sql).Scan(&name, &seq)
 	if err != nil {
 		t.Fatalf("QueryRow: %v", err)
 	}
 	return name, seq
+}
+
+// claimHead は集約ごとの未配信の先頭に絞ってからロックする。
+const claimHead = `SELECT o.event_type, o.sequence FROM outbox o
+	WHERE o.id IN (
+		SELECT DISTINCT ON (aggregate_type, aggregate_id) id
+		FROM outbox WHERE published_at IS NULL
+		ORDER BY aggregate_type, aggregate_id, sequence)
+	ORDER BY o.id LIMIT 1
+	FOR UPDATE OF o SKIP LOCKED`
+
+// 先頭に絞ると、B は同じ集約の連番2を取らず、別の集約の行を取る。
+// 確かめるのは行を取る段階までで、配信処理の全体ではない。
+func TestSkipLockedOnHeads(t *testing.T) {
+	pool := dbtest.New(t, outbox.Migrations)
+	first := uuid.New().String()
+	second := uuid.New().String()
+	a1, a2 := message(first, "a1"), message(first, "a2")
+	b1 := message(second, "b1")
+	a1.EventType, a2.EventType, b1.EventType = "a", "a", "b"
+	appendEvents(t, pool, a1, a2)
+	appendEvents(t, pool, b1)
+
+	ctx := t.Context()
+	txA, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	defer func() { _ = txA.Rollback(context.Background()) }()
+	txB, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	defer func() { _ = txB.Rollback(context.Background()) }()
+	name, seq := takeWith(t, txA, claimHead)
+	if name != "a" || seq != 1 {
+		t.Fatalf("A = %s %d", name, seq)
+	}
+	name, seq = takeWith(t, txB, claimHead)
+	if name != "b" || seq != 1 {
+		t.Fatalf("B = %s %d", name, seq)
+	}
+	t.Logf("先頭に絞る: A は集約1の連番1, B は集約2の連番%d", seq)
+}
+
+// ロックを外すと、同じ集約の2つの Tx が同じ連番を計算する。後の Tx は
+// 先の Tx のコミットを待ち、一意制約で失敗する。
+func TestSameSequenceWithoutLock(t *testing.T) {
+	pool := dbtest.New(t, outbox.Migrations)
+	ctx := t.Context()
+	aggregate := uuid.New().String()
+	insert := func(q sqlcgen.DBTX) error {
+		m := message(aggregate, "x")
+		return sqlcgen.New(q).InsertEvent(ctx,
+			sqlcgen.InsertEventParams{
+				EventID:       m.EventID,
+				AggregateType: m.AggregateType,
+				AggregateID:   m.AggregateID,
+				EventType:     m.EventType,
+				Payload:       m.Payload,
+				OccurredAt:    m.OccurredAt,
+			})
+	}
+	first, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	defer func() { _ = first.Rollback(context.Background()) }()
+	if err := insert(first); err != nil {
+		t.Fatalf("先の Tx: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- insert(pool) }()
+	waitForLock(t, pool)
+	if err := first.Commit(ctx); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+	err = <-done
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if !ok || pgErr.Code != "23505" {
+		t.Fatalf("後の Tx: %v", err)
+	}
+	t.Logf("後の Tx: SQLSTATE %s", pgErr.Code)
+}
+
+func waitForLock(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		var n int
+		err := pool.QueryRow(t.Context(),
+			`SELECT count(*) FROM pg_stat_activity
+			 WHERE datname = current_database()
+			   AND wait_event_type = 'Lock'`).Scan(&n)
+		if err != nil {
+			t.Fatalf("pg_stat_activity: %v", err)
+		}
+		if n > 0 {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("後の Tx が待ちに入らない")
 }
 
 // #region release-first

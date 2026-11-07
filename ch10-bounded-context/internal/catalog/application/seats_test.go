@@ -52,7 +52,7 @@ func TestReserveSeat_SavesSeatAndRecordsEvent(t *testing.T) {
 	d := newDeps()
 	lesson := addLesson(t, d.repo, d.tx, 1)
 	in := reserveInput(lesson)
-	if err := d.reserve().Execute(t.Context(), in); err != nil {
+	if _, err := d.reserve().Execute(t.Context(), in); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if n := seats(t, d.repo, lesson); n != 1 {
@@ -68,18 +68,18 @@ func TestReserveSeat_SavesSeatAndRecordsEvent(t *testing.T) {
 	}
 }
 
-// 満席は Tx を戻さず、SeatRejected を残して ErrLessonFull を返す。
+// 満席は Tx を戻さず、SeatRejected を残して rejected を返す。
 func TestReserveSeat_FullRecordsRejection(t *testing.T) {
 	d := newDeps()
 	lesson := addLesson(t, d.repo, d.tx, 1)
-	err := d.reserve().Execute(t.Context(), reserveInput(lesson))
+	_, err := d.reserve().Execute(t.Context(), reserveInput(lesson))
 	if err != nil {
 		t.Fatalf("1席目: %v", err)
 	}
 	in := reserveInput(lesson)
-	err = d.reserve().Execute(t.Context(), in)
-	if !errors.Is(err, domain.ErrLessonFull) {
-		t.Fatalf("err = %v", err)
+	rejected, err := d.reserve().Execute(t.Context(), in)
+	if !rejected || err != nil {
+		t.Fatalf("rejected = %v, err = %v", rejected, err)
 	}
 	if n := seats(t, d.repo, lesson); n != 1 {
 		t.Errorf("seats = %d", n)
@@ -99,9 +99,9 @@ func TestReserveSeat_FullRecordsRejection(t *testing.T) {
 func TestReserveSeat_MissingLessonRecordsRejection(t *testing.T) {
 	d := newDeps()
 	in := reserveInput(ids.NewID[ids.LessonMarker]())
-	err := d.reserve().Execute(t.Context(), in)
-	if !errors.Is(err, domain.ErrNotFound) {
-		t.Fatalf("err = %v", err)
+	rejected, err := d.reserve().Execute(t.Context(), in)
+	if !rejected || err != nil {
+		t.Fatalf("rejected = %v, err = %v", rejected, err)
 	}
 	events := d.outbox.Events()
 	if len(events) != 1 {
@@ -136,7 +136,7 @@ func TestReserveSeat_RetriesVersionConflict(t *testing.T) {
 	repo := &conflictOnce{LessonRepository: d.repo}
 	reserve := application.NewReserveSeat(
 		repo, d.outbox, d.processed, d.tx, fixedClock{now})
-	err := reserve.Execute(t.Context(), reserveInput(lesson))
+	_, err := reserve.Execute(t.Context(), reserveInput(lesson))
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -168,12 +168,13 @@ func TestReserveSeat_GivesUpWithConflict(t *testing.T) {
 	repo := &alwaysConflict{LessonRepository: d.repo}
 	reserve := application.NewReserveSeat(
 		repo, d.outbox, d.processed, d.tx, fixedClock{now})
-	err := reserve.Execute(t.Context(), reserveInput(lesson))
+	rejected, err := reserve.Execute(
+		t.Context(), reserveInput(lesson))
 	if !errors.Is(err, domain.ErrVersionConflict) {
 		t.Fatalf("err = %v", err)
 	}
-	if errors.Is(err, domain.ErrLessonFull) {
-		t.Errorf("満席に変わった: %v", err)
+	if rejected {
+		t.Error("満席に変わった")
 	}
 	if repo.saves < 2 {
 		t.Errorf("再試行していない: %d", repo.saves)
@@ -187,7 +188,7 @@ func TestReleaseSeat_FreesTheSeat(t *testing.T) {
 	d := newDeps()
 	lesson := addLesson(t, d.repo, d.tx, 1)
 	in := reserveInput(lesson)
-	if err := d.reserve().Execute(t.Context(), in); err != nil {
+	if _, err := d.reserve().Execute(t.Context(), in); err != nil {
 		t.Fatalf("Reserve: %v", err)
 	}
 	release := application.ReleaseSeatInput{
@@ -251,7 +252,8 @@ func TestReserveSeat_SameEventRunsOnce(t *testing.T) {
 	lesson := addLesson(t, d.repo, d.tx, 2)
 	in := reserveInput(lesson)
 	for range 2 {
-		if err := d.reserve().Execute(t.Context(), in); err != nil {
+		_, err := d.reserve().Execute(t.Context(), in)
+		if err != nil {
 			t.Fatalf("Execute: %v", err)
 		}
 	}
@@ -259,7 +261,7 @@ func TestReserveSeat_SameEventRunsOnce(t *testing.T) {
 		t.Errorf("events = %v", d.outbox.Events())
 	}
 	in.EventID = uuid.New().String()
-	if err := d.reserve().Execute(t.Context(), in); err != nil {
+	if _, err := d.reserve().Execute(t.Context(), in); err != nil {
 		t.Fatalf("別のイベント: %v", err)
 	}
 	if n := seats(t, d.repo, lesson); n != 1 {

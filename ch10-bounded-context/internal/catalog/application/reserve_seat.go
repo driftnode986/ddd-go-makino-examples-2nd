@@ -38,45 +38,39 @@ func NewReserveSeat(
 // #region execute
 
 // Execute は処理済みの記録・席の保存・結果のイベントを同じ Tx で
-// 書く。処理済みのイベントなら何もせず成功を返す。
-//
-// 満席のときは ErrLessonFull、レッスンが無いときは ErrNotFound を
-// 返す。どちらも拒否のイベントはコミットされている。版の競合は
-// 読み直して判定し直し、満席に変えない。Tx の中から呼ばない。
+// 書く。rejected が true なら、拒否のイベントをコミットした。
+// err は Tx を戻したことだけを表すので、配信処理は再配信する。
+// 版の競合は読み直して判定し直し、満席に変えない。
 func (u *ReserveSeat) Execute(
 	ctx context.Context, in ReserveSeatInput,
-) error {
-	var outcome error
-	err := retryOnConflict(ctx, func() error {
+) (rejected bool, err error) {
+	err = retryOnConflict(ctx, func() error {
 		return u.tx.Do(ctx, func(ctx context.Context) error {
 			first, err := u.processed.MarkProcessed(
 				ctx, Subscriber, in.EventID)
 			if err != nil {
 				return err
 			}
-			outcome = nil
+			rejected = false
 			if !first {
 				return nil
 			}
-			outcome, err = u.reserve(ctx, in)
+			rejected, err = u.reserve(ctx, in)
 			return err
 		})
 	})
-	if err != nil {
-		return err
-	}
-	return outcome
+	return rejected && err == nil, err
 }
 
 // #endregion
 
 // #region reserve
 
-// reserve は1回の試行である。1つ目の戻り値は拒否の理由で、
-// Tx を戻さない。2つ目の戻り値は Tx を戻すエラーである。
+// reserve は1回の試行である。満席とレッスンが無いことは rejected で
+// 返し、Tx を戻さない。err は Tx を戻すエラーである。
 func (u *ReserveSeat) reserve(
 	ctx context.Context, in ReserveSeatInput,
-) (rejected, err error) {
+) (rejected bool, err error) {
 	l, err := u.repo.FindByID(ctx, in.LessonID)
 	if errors.Is(err, domain.ErrNotFound) {
 		event := domain.SeatRejected{
@@ -85,22 +79,22 @@ func (u *ReserveSeat) reserve(
 			Reason:     domain.RejectLessonNotFound,
 			OccurredAt: u.clock.Now(),
 		}
-		return err, u.outbox.Append(ctx, event)
+		return true, u.outbox.Append(ctx, event)
 	}
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	err = l.ReserveSeat(in.BookingID, u.clock)
 	if errors.Is(err, domain.ErrLessonFull) {
-		return err, u.outbox.Append(ctx, l.PullEvents()...)
+		return true, u.outbox.Append(ctx, l.PullEvents()...)
 	}
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	if err := u.repo.Save(ctx, l); err != nil {
-		return nil, err
+		return false, err
 	}
-	return nil, u.outbox.Append(ctx, l.PullEvents()...)
+	return false, u.outbox.Append(ctx, l.PullEvents()...)
 }
 
 // #endregion

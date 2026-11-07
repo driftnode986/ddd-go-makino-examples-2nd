@@ -1,5 +1,6 @@
--- 同じ集約の書き込みを Tx の終わりまで順番に並べる。連番の順と
--- コミットの順がそろうので、先の連番が後から見える事態が起きない。
+-- 同じ集約の書き込みを Tx の終わりまで順番に並べる。連番は MAX + 1 で
+-- 決めるので、ロックが無いと2つの Tx が同じ連番を計算し、後の Tx が
+-- 一意制約で失敗する。
 -- name: LockAggregate :exec
 SELECT pg_advisory_xact_lock(hashtextextended(@aggregate_key::text, 1));
 

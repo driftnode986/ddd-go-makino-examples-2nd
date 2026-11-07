@@ -538,3 +538,49 @@ func TestRun_DeliversUntilCanceled(t *testing.T) {
 		t.Errorf("順序 (-want +got):\n%s", diff)
 	}
 }
+
+// 受け手が DB のロックを待ったまま返らなくても、期限で打ち切って失敗
+// を記録し、別の集約へ配信する。打ち切りは待っている SQL まで届く。
+func TestRelay_HungHandlerDoesNotBlockOthers(t *testing.T) {
+	f := newFixture(t)
+	ctx := t.Context()
+	hung, other := uuid.New().String(), uuid.New().String()
+	f.append(t, message(hung, "hung"), message(other, "other"))
+
+	holder, err := f.pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	defer func() { _ = holder.Rollback(context.Background()) }()
+	const lock = `SELECT pg_advisory_xact_lock(42)`
+	if _, err := holder.Exec(ctx, lock); err != nil {
+		t.Fatalf("lock: %v", err)
+	}
+	var names []string
+	var buf bytes.Buffer
+	relay := outbox.NewRelay(f.store,
+		slog.New(slog.NewJSONHandler(&buf, nil)),
+		outbox.RelayOptions{DeliveryTimeout: 100 * time.Millisecond})
+	relay.Subscribe(eventType, "test", outbox.On(func(
+		ctx context.Context, _ string, e event,
+	) error {
+		if e.Name == "hung" {
+			_, err := f.pool.Exec(ctx, lock)
+			return err
+		}
+		names = append(names, e.Name)
+		return nil
+	}))
+	limit, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if _, err := relay.RunOnce(limit); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if diff := cmp.Diff([]string{"other"}, names); diff != "" {
+		t.Errorf("配信 (-want +got):\n%s", diff)
+	}
+	head, err := f.store.Deliverable(ctx, 10)
+	if err != nil || len(head) != 1 || head[0].Attempts != 1 {
+		t.Errorf("head = %+v, err = %v", head, err)
+	}
+}

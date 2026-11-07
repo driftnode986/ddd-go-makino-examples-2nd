@@ -341,7 +341,7 @@ func TestSameTransaction(t *testing.T) {
 	}
 	ctx := t.Context()
 
-	err := reserve.Execute(ctx, in)
+	_, err := reserve.Execute(ctx, in)
 	if !errors.Is(err, errStopped) {
 		t.Fatalf("途中で止まる: %v", err)
 	}
@@ -352,11 +352,11 @@ func TestSameTransaction(t *testing.T) {
 	t.Logf("途中で止まった後: 席 %d, SeatReserved %d 件",
 		f.seats(t, lesson), n)
 
-	if err := reserve.Execute(ctx, in); err != nil {
+	if _, err := reserve.Execute(ctx, in); err != nil {
 		t.Fatalf("再配信: %v", err)
 	}
 	// コミットの後、配信済みの記録の前に止まった場合の再配信である
-	if err := reserve.Execute(ctx, in); err != nil {
+	if _, err := reserve.Execute(ctx, in); err != nil {
 		t.Fatalf("2度目の再配信: %v", err)
 	}
 	n = f.events(t, catalogcontract.EventSeatReserved)

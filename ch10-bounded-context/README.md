@@ -149,7 +149,7 @@ wait_status "$MEMBER2" "$THIRD"
 {"bookings":[{"id":"…","lesson_id":"0196f5a0-0000-7000-8001-000000000001","start":"…","end":"…","status":"confirmed","total_yen":3600,"options":[{"name":"シューズ","quantity":2,"subtotal_yen":600}]}]}
 ```
 
-`go test -tags=integration ./...` は次の行が `ok` で出ます。最後に実行時間が付きます。テストの無いパッケージは `[no test files]` と出ます。
+`go test -tags=integration ./...` は次の行が `ok` で出ます。最後に実行時間が付きます。テストの無いパッケージは `[no test files]` と出ます。 `steps/` のテストも `ok` で出ます（下の一覧には載せていません）。
 
 ```text
 ok  	example.com/trainingbooking/cmd/api

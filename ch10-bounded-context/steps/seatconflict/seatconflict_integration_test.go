@@ -69,37 +69,61 @@ func find(
 	return l
 }
 
-// #region as-full
-
 // 残席2のレッスンを2つの処理が同じ版で読む。競合した処理が満席の
-// 拒否を記録すると、席が残っているのに予約が拒否される。
+// 拒否を記録すると、席が残っているのに SeatRejected がコミットされる。
 func TestConflictTreatedAsFull(t *testing.T) {
 	pool := dbtest.New(t, postgres.Migrations, outbox.Migrations)
 	repo := postgres.NewLessonRepository(pool)
+	writer := postgres.NewOutboxWriter(outbox.NewStore(pool))
 	tx := pgtx.NewTransactor(pool)
 	ctx := t.Context()
 	lesson := addLesson(t, repo, tx, 2)
 	a := find(t, repo, lesson.ID())
 	b := find(t, repo, lesson.ID())
 	reserve := func(l *domain.Lesson) string {
-		err := l.ReserveSeat(ids.NewID[ids.BookingMarker](), clock)
+		booking := ids.NewID[ids.BookingMarker]()
+		if err := l.ReserveSeat(booking, clock); err != nil {
+			t.Fatalf("ReserveSeat: %v", err)
+		}
+		err := tx.Do(ctx, func(ctx context.Context) error {
+			if err := repo.Save(ctx, l); err != nil {
+				return err
+			}
+			return writer.Append(ctx, l.PullEvents()...)
+		})
 		if err == nil {
-			err = tx.Do(ctx, func(ctx context.Context) error {
-				return repo.Save(ctx, l)
+			return "確保"
+		}
+		if !errors.Is(err, domain.ErrVersionConflict) {
+			t.Fatalf("Save: %v", err)
+		}
+		err = tx.Do(ctx, func(ctx context.Context) error {
+			return writer.Append(ctx, domain.SeatRejected{
+				LessonID:   l.ID(),
+				BookingID:  booking,
+				Reason:     domain.RejectLessonFull,
+				OccurredAt: clock.now,
 			})
+		})
+		if err != nil {
+			t.Fatalf("Append: %v", err)
 		}
-		if errors.Is(err, domain.ErrVersionConflict) {
-			return "満席として拒否"
-		}
-		return "確保"
+		return "満席として拒否"
 	}
 	t.Logf("処理 A: %s", reserve(a))
 	t.Logf("処理 B: %s", reserve(b))
-	t.Logf("定員 2 のレッスンの席: %d",
-		find(t, repo, lesson.ID()).ReservedSeats())
+	seats := find(t, repo, lesson.ID()).ReservedSeats()
+	var rejected int
+	err := pool.QueryRow(ctx, `SELECT count(*) FROM outbox
+		WHERE event_type = 'seat.rejected'`).Scan(&rejected)
+	if err != nil {
+		t.Fatalf("QueryRow: %v", err)
+	}
+	if seats != 1 || rejected != 1 {
+		t.Fatalf("seats = %d, rejected = %d", seats, rejected)
+	}
+	t.Logf("定員 2 のレッスン: 席 %d, SeatRejected %d 件", seats, rejected)
 }
-
-// #endregion
 
 // interleaved は最初の読み込みの直後に、別の処理を割り込ませる。
 // 順序を作るので、毎回必ず版の競合になる。
@@ -160,12 +184,13 @@ func TestConflictIsRetried(t *testing.T) {
 	repo := &interleaved{
 		LessonRepository: inner,
 		other: func() error {
-			return other.Execute(context.Background(), input())
+			_, err := other.Execute(context.Background(), input())
+			return err
 		},
 	}
 	reserve := application.NewReserveSeat(
 		repo, discardOutbox{}, processed, tx, clock)
-	if err := reserve.Execute(ctx, input()); err != nil {
+	if _, err := reserve.Execute(ctx, input()); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if repo.conflicts != 1 {

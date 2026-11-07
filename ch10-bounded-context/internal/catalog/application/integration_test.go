@@ -71,24 +71,25 @@ func TestReserveSeat_ConcurrentLastSeat(t *testing.T) {
 		outbox.NewProcessedEvents(pool), tx, fixedClock{now})
 
 	errs := make([]error, 2)
+	rejected := make([]bool, 2)
 	var done sync.WaitGroup
 	for i := range errs {
 		done.Go(func() {
-			errs[i] = reserve.Execute(
+			rejected[i], errs[i] = reserve.Execute(
 				t.Context(), reserveInput(lesson))
 		})
 	}
 	done.Wait()
 
 	reserved, full := 0, 0
-	for _, err := range errs {
+	for i, err := range errs {
 		switch {
-		case err == nil:
-			reserved++
-		case errors.Is(err, domain.ErrLessonFull):
+		case err != nil:
+			t.Errorf("想定外のエラー: %v", err)
+		case rejected[i]:
 			full++
 		default:
-			t.Errorf("想定外のエラー: %v", err)
+			reserved++
 		}
 	}
 	if reserved != 1 || full != 1 {
@@ -118,11 +119,13 @@ func TestReserveSeat_ConcurrentUpToCapacity(t *testing.T) {
 
 	inputs := make([]application.ReserveSeatInput, requests)
 	errs := make([]error, requests)
+	rejected := make([]bool, requests)
 	var done sync.WaitGroup
 	for i := range errs {
 		inputs[i] = reserveInput(lesson)
 		done.Go(func() {
-			errs[i] = reserve.Execute(t.Context(), inputs[i])
+			rejected[i], errs[i] = reserve.Execute(
+				t.Context(), inputs[i])
 		})
 	}
 	done.Wait()
@@ -132,13 +135,13 @@ func TestReserveSeat_ConcurrentUpToCapacity(t *testing.T) {
 	for i, err := range errs {
 		booking := inputs[i].BookingID.String()
 		switch {
-		case err == nil:
-			reserved++
-			want[booking] = contract.EventSeatReserved
-		case errors.Is(err, domain.ErrLessonFull):
+		case err != nil:
+			t.Errorf("想定外のエラー: %v", err)
+		case rejected[i]:
 			want[booking] = contract.EventSeatRejected
 		default:
-			t.Errorf("想定外のエラー: %v", err)
+			reserved++
+			want[booking] = contract.EventSeatReserved
 		}
 	}
 	if reserved != capacity {
@@ -218,15 +221,15 @@ func TestReserveSeat_RedeliveryAfterFailureOnPostgres(t *testing.T) {
 		outbox.NewProcessedEvents(pool), tx, fixedClock{now})
 	in := reserveInput(lesson)
 
-	err := reserve.Execute(t.Context(), in)
-	if err == nil || errors.Is(err, domain.ErrLessonFull) {
-		t.Fatalf("1回目: %v", err)
+	rejected, err := reserve.Execute(t.Context(), in)
+	if err == nil || rejected {
+		t.Fatalf("1回目: rejected = %v, err = %v", rejected, err)
 	}
 	if n := seats(t, repo, lesson); n != 0 {
 		t.Fatalf("途中で止まった席が残った: %d", n)
 	}
 	for range 2 {
-		if err := reserve.Execute(t.Context(), in); err != nil {
+		if _, err := reserve.Execute(t.Context(), in); err != nil {
 			t.Fatalf("再配信: %v", err)
 		}
 	}
@@ -242,5 +245,69 @@ func TestReserveSeat_RedeliveryAfterFailureOnPostgres(t *testing.T) {
 	}
 	if events != 1 {
 		t.Errorf("結果のイベント = %d 件", events)
+	}
+}
+
+// deletedAfterRead は読み込みの直後に、別の接続でレッスンを消す。
+// 読み取りと保存の間に消える順序を毎回作るためである。
+type deletedAfterRead struct {
+	domain.LessonRepository
+	pool *pgxpool.Pool
+	once sync.Once
+	err  error
+}
+
+func (r *deletedAfterRead) FindByID(
+	ctx context.Context, id ids.LessonID,
+) (*domain.Lesson, error) {
+	l, err := r.LessonRepository.FindByID(ctx, id)
+	r.once.Do(func() {
+		for _, table := range []string{
+			"lesson_options", "lesson_seats",
+		} {
+			_, r.err = r.pool.Exec(context.Background(),
+				"DELETE FROM "+table+" WHERE lesson_id = $1",
+				id.String())
+		}
+		_, r.err = r.pool.Exec(context.Background(),
+			`DELETE FROM lessons WHERE id = $1`, id.String())
+	})
+	return l, err
+}
+
+// 保存のときにレッスンが無いと、Tx は戻る。拒否のイベントも処理済みの
+// 記録も残らないので、配信の失敗にして再配信する。再配信で拒否になる。
+func TestBookingPlaced_LessonDeletedBeforeSave(t *testing.T) {
+	pool := dbtest.New(t, postgres.Migrations, outbox.Migrations)
+	inner := postgres.NewLessonRepository(pool)
+	tx := pgtx.NewTransactor(pool)
+	lesson := addLesson(t, inner, tx, 2)
+	repo := &deletedAfterRead{LessonRepository: inner, pool: pool}
+	processed := outbox.NewProcessedEvents(pool)
+	writer := postgres.NewOutboxWriter(outbox.NewStore(pool))
+	handler := application.NewBookingEventHandler(
+		application.NewReserveSeat(
+			repo, writer, processed, tx, fixedClock{now}),
+		application.NewReleaseSeat(repo, processed, tx))
+	event := placedEvent(lesson)
+	eventID := outbox.NewEventID()
+
+	err := handler.OnBookingPlaced(t.Context(), eventID, event)
+	if repo.err != nil {
+		t.Fatalf("DELETE: %v", repo.err)
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("1回目: %v", err)
+	}
+	if n := len(resultEvents(t, pool, lesson)); n != 0 {
+		t.Fatalf("1回目の結果のイベント = %d 件", n)
+	}
+	err = handler.OnBookingPlaced(t.Context(), eventID, event)
+	if err != nil {
+		t.Fatalf("再配信: %v", err)
+	}
+	got := resultEvents(t, pool, lesson)
+	if got[event.BookingID] != contract.EventSeatRejected {
+		t.Errorf("結果のイベント = %v", got)
 	}
 }

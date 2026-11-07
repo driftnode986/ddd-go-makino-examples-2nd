@@ -1,9 +1,9 @@
-    event_type     | aggregate | seq | published
--------------------+-----------+-----+-----------
- booking.placed    | booking   |   1 | t
- seat.reserved     | lesson    |   1 | t
- booking.placed    | booking   |   1 | t
- seat.rejected     | lesson    |   2 | t
- booking.cancelled | booking   |   2 | t
- booking.placed    | booking   |   1 | t
- seat.reserved     | lesson    |   3 | t
+    event_type     | aggregate | agg_id | seq
+-------------------+-----------+--------+-----
+ booking.placed    | booking   | 0f9b   |   1
+ seat.reserved     | lesson    | 0002   |   1
+ booking.placed    | booking   | 5e69   |   1
+ seat.rejected     | lesson    | 0002   |   2
+ booking.cancelled | booking   | 0f9b   |   2
+ booking.placed    | booking   | 0e28   |   1
+ seat.reserved     | lesson    | 0002   |   3
