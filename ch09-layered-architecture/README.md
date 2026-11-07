@@ -17,7 +17,7 @@ HTTP の層と `main` を足して、初めて `go run` で動かします。
 
 - 追加: `internal/booking/presentation/`、`cmd/api/`、`internal/booking/infrastructure/postgres/outbox_log.go`
 - 変更: `Makefile` に `run` を追加
-- `steps/` と `out/` はこの章の失敗の例と実行結果です。`bash out/regen.sh` で作り直せます（Docker が要ります。5432 と 8080 を使います）
+- `steps/` と `out/` はこの章の失敗の例と実行結果です。`bash out/regen.sh` で作り直せます（Docker が要ります。5432 と 18089 を使います）
 
 ## 動かし方
 

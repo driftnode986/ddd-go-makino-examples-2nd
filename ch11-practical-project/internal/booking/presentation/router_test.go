@@ -324,7 +324,7 @@ func TestUnknownError_IsInternal(t *testing.T) {
 	}
 }
 
-// 利用者の切断と期限切れは 500 のままで、ログの水準を下げる。
+// 利用者の切断だけログレベルを下げる。期限切れは障害として見る。
 func TestContextErrors_LogLevel(t *testing.T) {
 	for _, c := range []struct {
 		cause error

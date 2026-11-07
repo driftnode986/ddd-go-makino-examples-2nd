@@ -83,3 +83,51 @@ func TestWriteTimeoutDoesNotCancelHandler(t *testing.T) {
 		t.Fatalf("ctx.Err = %v", got)
 	}
 }
+
+// 大きいアップロードのルートは、ハンドラで期限を延ばせる。
+func TestSetReadDeadlineExtendsForOneRoute(t *testing.T) {
+	done, err := slowUpload(t)
+	t.Logf("SetReadDeadline で延長: 読み取りのエラー = %v", err)
+	if !done || err != nil {
+		t.Fatalf("done = %v, err = %v", done, err)
+	}
+}
+
+func slowUpload(t *testing.T) (bool, error) {
+	t.Helper()
+	got := make(chan error, 1)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			err := http.NewResponseController(w).SetReadDeadline(
+				time.Now().Add(2 * time.Second))
+			if err != nil {
+				got <- err
+				return
+			}
+			_, err = io.ReadAll(r.Body)
+			got <- err
+		}))
+	ts.Config.ReadTimeout = 200 * time.Millisecond
+	ts.Start()
+	defer ts.Close()
+	conn, err := net.Dial("tcp", ts.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	_, err = fmt.Fprint(conn, "POST / HTTP/1.1\r\nHost: x\r\n"+
+		"Content-Length: 6\r\n\r\nabc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(500 * time.Millisecond)
+	if _, err = fmt.Fprint(conn, "def"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-got:
+		return true, err
+	case <-time.After(3 * time.Second):
+		return false, nil
+	}
+}

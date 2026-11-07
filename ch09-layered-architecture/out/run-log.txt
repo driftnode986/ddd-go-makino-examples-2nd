@@ -1,6 +1,6 @@
 {"level":"INFO","msg":"event
-recorded","event":"booking.placed","aggregate_id":"01a1b350-a7e4-75e3
--8a5a-102775320f14","request_id":"01a1b350-a7e3-7f43-b9df-2f3f10cda93
-0"}
+recorded","event":"booking.placed","aggregate_id":"01a1b360-b67d-7b9d
+-af26-fc9a7cab0f2c","request_id":"01a1b360-b67d-70dd-9ad0-786be7528eb
+4"}
 {"level":"INFO","msg":"request","method":"POST","path":"/bookings","s
-tatus":201,"request_id":"01a1b350-a7e3-7f43-b9df-2f3f10cda930"}
+tatus":201,"request_id":"01a1b360-b67d-70dd-9ad0-786be7528eb4"}

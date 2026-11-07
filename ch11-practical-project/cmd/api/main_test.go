@@ -76,3 +76,21 @@ func TestShutdown_CancelsRequestsAfterTimeout(t *testing.T) {
 		t.Fatal("リクエストが中断されない")
 	}
 }
+
+// 本文の読み取りは処理の期限より先に止める。遅い本文を
+// 期限切れの 500 にしないためである。
+func TestNewServer_ReadsBodyBeforeRequestDeadline(t *testing.T) {
+	s := newServer(nil)
+	if s.ReadTimeout >= requestTimeout {
+		t.Errorf("ReadTimeout = %v, requestTimeout = %v",
+			s.ReadTimeout, requestTimeout)
+	}
+	if s.WriteTimeout <= requestTimeout {
+		t.Errorf("WriteTimeout = %v, requestTimeout = %v",
+			s.WriteTimeout, requestTimeout)
+	}
+	if requestTimeout >= shutdownTimeout {
+		t.Errorf("requestTimeout = %v, shutdownTimeout = %v",
+			requestTimeout, shutdownTimeout)
+	}
+}

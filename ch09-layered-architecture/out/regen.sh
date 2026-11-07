@@ -1,7 +1,7 @@
 #!/bin/bash
 # 本に載せる実行結果を作り直す。章のディレクトリで実行する。
 #   bash out/regen.sh
-# Docker が要る。5432 と 8080 が空いていること。
+# Docker が要る。5432 と 18089 が空いていること。
 # テストの結果は、t.Logf の中身だけを残す。
 # 紙面に入らない行は 69 桁で折り返す。
 set -u
@@ -44,35 +44,56 @@ log=$(mktemp)
 bin=$(mktemp)
 make -s up
 go build -o "$bin" ./cmd/api
-TZ=UTC "$bin" >"$log" 2>&1 &
+TZ=UTC ADDR=localhost:18089 "$bin" >"$log" 2>&1 &
 pid=$!
-until curl -s -o /dev/null localhost:8080/; do sleep 0.2; done
+until curl -s -o /dev/null localhost:18089/; do sleep 0.2; done
 
 member=0196f5a0-0000-7000-8000-000000000001
 lesson=0196f5a0-0000-7000-8000-000000000002
 body='{"member_id":"'$member'","lesson_id":"'$lesson'","options":[{"name":"シューズ","quantity":2}],"coupon_code":"WELCOME10"}'
 # 状態行と X-Request-ID と本文だけを残す
 post() { curl -si "$@" | tr -d '\r' | grep -E '^HTTP/|^X-Request-Id|^\{' | shape; }
-post -X POST localhost:8080/bookings -H 'Content-Type: application/json' -d "$body" >out/run-post.txt
+post -X POST localhost:18089/bookings -H 'Content-Type: application/json' -d "$body" >out/run-post.txt
 id=$(grep -o '"id":"[^"]*"' out/run-post.txt | cut -d'"' -f4)
-post -X POST localhost:8080/bookings -H 'Content-Type: application/json' -d "$body" >out/run-dup.txt
-curl -s "localhost:8080/members/$member/bookings" | jq . >out/run-list.txt
-post -X POST "localhost:8080/bookings/$id/cancel" >out/run-cancel.txt
+post -X POST localhost:18089/bookings -H 'Content-Type: application/json' -d "$body" >out/run-dup.txt
+curl -s "localhost:18089/members/$member/bookings" | jq . >out/run-list.txt
+post -X POST "localhost:18089/bookings/$id/cancel" >out/run-cancel.txt
 jq -c 'del(.time,.duration)' "$log" | grep -E '"event recorded"|"status":201' | shape >out/run-log.txt
+
+# タイムアウトの実測。本文に書いた結果の裏づけ（本には載せない）。
+slow='{"member_id":"0196f5a0-0000-7000-8000-000000000009","lesson_id":"'$lesson'"}'
+{
+	exec 3<>/dev/tcp/localhost/18089
+	printf 'POST /bookings HTTP/1.1\r\nHost: x\r\nConnection: close\r\nContent-Length: %d\r\n\r\n%s' "${#slow}" "${slow:0:10}" >&3
+	sleep 6
+	printf '%s' "${slow:10}" >&3 2>/dev/null
+	echo "本文を6秒かけて送る: $(head -1 <&3 | tr -d '\r')"
+	exec 3<&- 3>&-
+	docker compose pause postgres >/dev/null 2>&1
+	echo "DB が応答しない: $(curl -s -o /dev/null -w '%{http_code} %{time_total}s' -X POST localhost:18089/bookings -H 'Content-Type: application/json' -d "$slow")"
+	docker compose unpause postgres >/dev/null 2>&1
+	echo "DB が応答しないときのログレベル: $(jq -r 'select(.msg=="request failed").level' "$log" | tail -1)"
+} >out/run-timeouts.txt
 
 docker compose stop -t 1 postgres >/dev/null 2>&1
 # 1回目は切れた接続の後始末でエラーの文が変わるので、2回目を載せる
 other=0196f5a0-0000-7000-8000-000000000003
 down='{"member_id":"'$other'","lesson_id":"'$lesson'"}'
-post -X POST localhost:8080/bookings -H 'Content-Type: application/json' -d "$down" >/dev/null
+post -X POST localhost:18089/bookings -H 'Content-Type: application/json' -d "$down" >/dev/null
 : >"$log.mark"; wc -l <"$log" >"$log.mark"
-post -X POST localhost:8080/bookings -H 'Content-Type: application/json' -d "$down" >out/run-db-down.txt
+post -X POST localhost:18089/bookings -H 'Content-Type: application/json' -d "$down" >out/run-db-down.txt
 tail -n "+$(($(cat "$log.mark") + 1))" "$log" | jq -c 'del(.time,.duration)' | grep '"request failed"' | shape >out/run-db-down-log.txt
 rm -f "$log.mark"
 
+# 本文の途中で止まる接続を残して止める
+exec 3<>/dev/tcp/localhost/18089
+printf 'POST /bookings HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\nabc' >&3
+started=$(python3 -c 'import time; print(time.time())')
 kill -TERM "$pid"
 wait "$pid"
 echo "終了コード: $?" >out/run-stop.txt
+python3 -c "import time; print('本文の途中で止まる接続を残した停止: %.1fs' % (time.time() - $started))" >>out/run-timeouts.txt
+exec 3<&- 3>&-
 jq -c 'del(.time,.duration)' "$log" | grep -E '"shutting down"' | shape >>out/run-stop.txt
 make -s down >/dev/null 2>&1
 rm -f "$log" "$bin"
