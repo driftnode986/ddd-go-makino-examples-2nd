@@ -165,6 +165,36 @@ func TestTransactor_NestedJoinsOuter(t *testing.T) {
 	}
 }
 
+// 内側の Do のエラーを外側で捨てると、外側はコミットする。
+// 内側に失敗の印は残らない。
+func TestTransactor_DroppedInnerErrorCommits(t *testing.T) {
+	pool := newPool(t)
+	repo := postgres.NewBookingRepository(pool)
+	tx := pgtx.NewTransactor(pool)
+	ctx := t.Context()
+	inner, _ := newPair(t)
+
+	boom := errors.New("boom")
+	err := tx.Do(ctx, func(ctx context.Context) error {
+		innerErr := tx.Do(ctx, func(ctx context.Context) error {
+			if err := repo.Add(ctx, inner); err != nil {
+				return err
+			}
+			return boom
+		})
+		if !errors.Is(innerErr, boom) {
+			t.Errorf("内側の Do: %v", innerErr)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	if _, err := repo.FindByID(ctx, inner.ID()); err != nil {
+		t.Fatalf("内側で足した予約が残っていない: %v", err)
+	}
+}
+
 // 重複で失敗した Add は、外側の Tx を失敗させて全体を戻す。
 func TestTransactor_OverlapAbortsOuter(t *testing.T) {
 	pool := newPool(t)
