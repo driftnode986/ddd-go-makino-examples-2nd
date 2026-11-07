@@ -156,8 +156,8 @@ func (b *Booking) Reject() error {
 
 // #region cancel
 
-// Cancel は確定済みの予約を開始の24時間前まで取り消す。
-// pending は席の確保と行き違うので取り消せない。
+// Cancel は確定済みの予約を開始の24時間前までキャンセルする。
+// pending は席の確保と行き違うのでキャンセルできない。
 func (b *Booking) Cancel(clk Clock) error {
 	if b.status != StatusConfirmed {
 		return b.invalidTransition("cancel")

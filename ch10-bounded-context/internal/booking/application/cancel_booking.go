@@ -18,7 +18,7 @@ type CancelBookingOutput struct {
 	Status    string
 }
 
-// CancelBooking は確定済みの予約を取り消す。
+// CancelBooking は確定済みの予約をキャンセルする。
 type CancelBooking struct {
 	repo   domain.BookingRepository
 	outbox OutboxWriter
@@ -36,7 +36,7 @@ func NewCancelBooking(
 	return &CancelBooking{repo, outbox, tx, clock}
 }
 
-// Execute は ID を値にして取り消し、エラーを変換する。
+// Execute は ID を値にしてキャンセルし、エラーを変換する。
 func (u *CancelBooking) Execute(
 	ctx context.Context, in CancelBookingInput,
 ) (CancelBookingOutput, error) {
@@ -57,7 +57,7 @@ func (u *CancelBooking) Execute(
 
 // #region cancel
 
-// cancel は予約を読み、取り消して保存し、同じ Tx で
+// cancel は予約を読み、キャンセルして保存し、同じ Tx で
 // BookingCancelled を outbox に書く。失敗した集約は捨てる。
 func (u *CancelBooking) cancel(
 	ctx context.Context, id ids.BookingID,

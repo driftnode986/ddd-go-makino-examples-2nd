@@ -36,7 +36,7 @@ func (e BookingPlaced) AggregateID() string {
 // When は出来事の時刻を返す。
 func (e BookingPlaced) When() time.Time { return e.OccurredAt }
 
-// BookingCancelled は確定済みの予約が取り消されたことを表す。
+// BookingCancelled は確定済みの予約がキャンセルされたことを表す。
 type BookingCancelled struct {
 	BookingID  ids.BookingID
 	LessonID   ids.LessonID

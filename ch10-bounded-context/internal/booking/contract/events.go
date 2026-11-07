@@ -22,7 +22,7 @@ type BookingPlaced struct {
 
 // #endregion
 
-// BookingCancelled は確定済みの予約を取り消したことを伝える
+// BookingCancelled は確定済みの予約をキャンセルしたことを伝える
 // 統合イベントである。
 type BookingCancelled struct {
 	BookingID  string    `json:"booking_id"`
