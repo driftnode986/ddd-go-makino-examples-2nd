@@ -45,7 +45,7 @@ make seed
 make run
 ```
 
-`make up` は PostgreSQL を起動し、初回はスキーマを流します。`make seed` はレッスンの初期データを入れます。`make run` は API と配信処理を1つのプロセスで起動します。PostgreSQL は `127.0.0.1:5432` で待ち受けます。別の章で起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` を指定します。接続先は環境変数 `DATABASE_URL`、待ち受けるアドレスは `ADDR` で変えられます。
+`make up` は PostgreSQL を起動し、初回はスキーマを流します。`make seed` はレッスンの初期データを入れます。`make run` は API と配信処理を1つのプロセスで起動します。PostgreSQL は `127.0.0.1:5432` で待ち受けます。別の章で起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` を指定します。接続先は環境変数 `DATABASE_URL`、待ち受けるアドレスは `ADDR` で変えられます。`ADDR` を変えたときは、手順を実行するターミナルの `API` も同じ値にします。先に `lsof -i :8080` で空いていることを確かめます。使われていると、`curl` が別のサーバーに届きます。
 
 初期データのレッスンの日時は、初めて `make seed` を実行した日の30日後です。もう一度流しても日時は変わりません。日が過ぎて予約できなくなったら `make reset` で作り直します（予約も消えます）。
 
@@ -56,27 +56,28 @@ make run
 別のターミナルから予約します。
 
 ```bash
-curl -i -X POST localhost:8080/bookings \
+API=${API:-localhost:8080}
+curl -i -X POST "$API/bookings" \
   -H 'Content-Type: application/json' \
   -d '{
     "member_id": "0196f5a0-0000-7000-8000-000000000001",
     "lesson_id": "0196f5a0-0000-7000-8001-000000000001",
     "options": [{"name": "シューズ", "quantity": 2}]
   }'
-curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000001/bookings
+curl "$API/members/0196f5a0-0000-7000-8000-000000000001/bookings"
 ```
 
 クーポンのコードを付けると、合計から割り引きます。使えるコードは `WELCOME10`（10%）です。不明なコードは `400` を返します。
 
 ```bash
-curl -i -X POST localhost:8080/bookings \
+curl -i -X POST "$API/bookings" \
   -H 'Content-Type: application/json' \
   -d '{
     "member_id": "0196f5a0-0000-7000-8000-000000000003",
     "lesson_id": "0196f5a0-0000-7000-8001-000000000001",
     "coupon_code": "WELCOME10"
   }'
-curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000003/bookings
+curl "$API/members/0196f5a0-0000-7000-8000-000000000003/bookings"
 ```
 
 少し待って一覧を読むと `"status":"confirmed"`・`"total_yen":2700` になっています。
@@ -88,16 +89,17 @@ curl localhost:8080/members/0196f5a0-0000-7000-8000-000000000003/bookings
 定員1のレッスンで、満席の拒否とキャンセルで席が戻るところを確かめます。手順には `jq` を使います。まず、会員とレッスンの ID と、次の2つの関数を同じターミナルで定義します。
 
 ```bash
+API=${API:-localhost:8080}
 # 予約して id を表示する（$1=会員 $2=レッスン）
 book() {
-  curl -s -X POST localhost:8080/bookings \
+  curl -s -X POST "$API/bookings" \
     -H 'Content-Type: application/json' \
     -d "{\"member_id\":\"$1\",\"lesson_id\":\"$2\"}" | jq -r .id
 }
 # pending でなくなるまで待ち、状態を表示する（$1=会員 $2=予約）
 wait_status() {
   for _ in $(seq 50); do
-    state=$(curl -s "localhost:8080/members/$1/bookings" |
+    state=$(curl -s "$API/members/$1/bookings" |
       jq -r --arg id "$2" \
         '.bookings[] | select(.id == $id) | .status')
     [ "$state" != pending ] && break
@@ -128,7 +130,7 @@ wait_status "$MEMBER2" "$SECOND"
 `rejected` と表示されます。1人目の予約をキャンセルすると席が戻り、2人目がもう一度予約すると `confirmed` になります。
 
 ```bash
-curl -s -X POST "localhost:8080/bookings/$FIRST/cancel"
+curl -s -X POST "$API/bookings/$FIRST/cancel"
 echo
 THIRD=$(book "$MEMBER2" "$PILATES")
 wait_status "$MEMBER2" "$THIRD"
