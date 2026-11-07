@@ -430,3 +430,37 @@ func (f fixture) waitForInsertLock(t *testing.T) {
 	}
 	t.Fatal("2つ目の INSERT が待ちに入らない")
 }
+
+// 外部の API の呼び出しは Tx で戻せない。呼んだ後で Tx が戻ると、
+// 処理済みの記録も戻るので、再配信でもう一度呼ぶ。
+func TestExternalCallRepeatsOnRedelivery(t *testing.T) {
+	f := newFixture(t)
+	calls := 0
+	eventID := outbox.NewEventID()
+	deliver := func(fail bool) error {
+		return f.tx.Do(t.Context(), func(ctx context.Context) error {
+			first, err := f.processed.MarkProcessed(
+				ctx, "payment", eventID)
+			if err != nil || !first {
+				return err
+			}
+			calls++ // 外部の API を呼ぶ
+			if fail {
+				return errStopped
+			}
+			return nil
+		})
+	}
+	if err := deliver(true); !errors.Is(err, errStopped) {
+		t.Fatalf("1回目: %v", err)
+	}
+	for range 2 {
+		if err := deliver(false); err != nil {
+			t.Fatalf("再配信: %v", err)
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("呼び出し = %d 回", calls)
+	}
+	t.Logf("再配信の後の呼び出し: %d 回", calls)
+}

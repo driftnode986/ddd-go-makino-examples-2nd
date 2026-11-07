@@ -51,8 +51,8 @@ type RelayOptions struct {
 	// StallAfter は配信の遅れを障害として記録するまでの時間である。
 	// 超えても再配信は止めない。
 	StallAfter time.Duration
-	// DeliveryTimeout は1件の配信の期限である。受け手が返らなくても
-	// 別の集約の配信を止めない。
+	// DeliveryTimeout は1件の配信の期限である。ctx を見る受け手なら、
+	// 返らなくても別の集約の配信を止めない。
 	DeliveryTimeout time.Duration
 }
 
