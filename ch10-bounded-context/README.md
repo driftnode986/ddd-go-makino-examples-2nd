@@ -40,12 +40,12 @@ go test -v -tags=integration ./steps/splitreceiver/
 cd ch10-bounded-context
 go test ./...
 go test -tags=integration ./...
-make up      # PostgreSQL を起動し、初回はスキーマを流す
-make seed    # レッスンの初期データを入れる
-make run     # API と配信処理を1つのプロセスで起動する
+make up
+make seed
+make run
 ```
 
-PostgreSQL は `127.0.0.1:5432` で待ち受けます。別の章で起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` を指定します。接続先は環境変数 `DATABASE_URL`、待ち受けるアドレスは `ADDR` で変えられます。
+`make up` は PostgreSQL を起動し、初回はスキーマを流します。`make seed` はレッスンの初期データを入れます。`make run` は API と配信処理を1つのプロセスで起動します。PostgreSQL は `127.0.0.1:5432` で待ち受けます。別の章で起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` を指定します。接続先は環境変数 `DATABASE_URL`、待ち受けるアドレスは `ADDR` で変えられます。
 
 初期データのレッスンの日時は、初めて `make seed` を実行した日の30日後です。もう一度流しても日時は変わりません。日が過ぎて予約できなくなったら `make reset` で作り直します（予約も消えます）。
 
