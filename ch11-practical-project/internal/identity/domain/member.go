@@ -23,6 +23,8 @@ type Member struct {
 	name  string
 }
 
+// #region new-member
+
 // NewMember は会員を作る。ID の採番は呼び出し側で行う。
 func NewMember(
 	id ids.MemberID, email Email, name string,
@@ -33,6 +35,8 @@ func NewMember(
 	}
 	return &Member{id: id, email: email, name: name}, nil
 }
+
+// #endregion
 
 // ID は会員の ID を返す。
 func (m *Member) ID() ids.MemberID { return m.id }

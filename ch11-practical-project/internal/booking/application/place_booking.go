@@ -131,13 +131,16 @@ func (u *PlaceBooking) newBooking(
 	if err != nil {
 		return nil, err
 	}
+	// #region check-member
 	exists, err := u.members.Exists(ctx, member)
 	if err != nil {
 		return nil, translate(err)
 	}
 	if !exists {
-		return nil, invalid("指定の会員がありません", ErrMemberNotFound)
+		return nil, invalid(
+			"指定の会員がありません", ErrMemberNotFound)
 	}
+	// #endregion
 	terms, err := u.lessons.Terms(ctx, lesson)
 	if errors.Is(err, ErrLessonNotFound) {
 		return nil, invalid("指定のレッスンがありません", err)

@@ -1,0 +1,2 @@
+{"status":"confirmed","total_yen":3600,"options":[{"name":"シューズ",
+"quantity":2,"subtotal_yen":600}]}

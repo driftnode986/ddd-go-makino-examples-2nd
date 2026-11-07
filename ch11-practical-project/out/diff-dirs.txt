@@ -1,0 +1,9 @@
+変更: booking/application/lessons.go
+変更: booking/application/place_booking.go
+追加: booking/infrastructure/acl/members.go
+追加: identity/application
+追加: identity/contract
+追加: identity/domain/member.go
+追加: identity/domain/repository.go
+追加: identity/domain/repositorytest
+追加: identity/infrastructure

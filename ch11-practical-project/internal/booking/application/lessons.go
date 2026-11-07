@@ -47,7 +47,11 @@ type LessonCatalog interface {
 
 // #endregion
 
+// #region member-directory
+
 // MemberDirectory は会員の有無を答える。
 type MemberDirectory interface {
 	Exists(ctx context.Context, id ids.MemberID) (bool, error)
 }
+
+// #endregion

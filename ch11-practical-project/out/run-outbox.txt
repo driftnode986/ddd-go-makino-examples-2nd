@@ -1,0 +1,13 @@
+    event_type     | seq | attempts | published
+-------------------+-----+----------+-----------
+ booking.placed    |   1 |        0 | t
+ seat.reserved     |   1 |        0 | t
+ booking.placed    |   1 |        0 | t
+ seat.reserved     |   2 |        0 | t
+ booking.placed    |   1 |        0 | t
+ seat.reserved     |   1 |        0 | t
+ booking.placed    |   1 |        0 | t
+ seat.rejected     |   2 |        0 | t
+ booking.cancelled |   2 |        0 | t
+ booking.placed    |   1 |        0 | t
+ seat.reserved     |   3 |        0 | t

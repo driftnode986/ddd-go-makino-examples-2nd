@@ -6,10 +6,10 @@ up:
 down:
 	docker compose down -v
 
-# 会員とレッスンの初期データを入れる。何度流してもよい。
+# 会員とレッスンの初期データを入れる。何度実行してもよい。
+# ドメインの検証を通すので、SQL でなく Go のコマンドで入れる。
 seed:
-	docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
-		-U dev -d trainingbooking < scripts/seed.sql
+	go run ./cmd/seed
 
 # データを消して最初からやり直す。
 reset: down up seed

@@ -36,14 +36,17 @@ jobs:
           go-version-file: ${{ matrix.dir }}/go.mod
           # 依存の無い章には go.sum が無いので、repo 全体で指定します。
           cache-dependency-path: "**/go.sum"
+      # #region steps
       - name: gofmt
         run: test -z "$(gofmt -l .)"
       - run: go build ./...
       - run: go vet ./...
       - run: go vet -tags=integration ./...
       - run: go test ./...
-      - name: 統合テスト（第7章以降は Docker で PostgreSQL を起動します）
+      # 第7章以降は Docker で PostgreSQL を起動します
+      - name: 統合テスト
         run: go test -race -tags=integration ./...
+      # #endregion
       - name: golangci-lint
         run: |
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0

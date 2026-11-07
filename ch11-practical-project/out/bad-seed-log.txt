@@ -1,0 +1,2 @@
+ERROR request failed: internal: 内部エラーが発生しました: invalid
+member: invalid email: mail: missing '@' or angle-addr

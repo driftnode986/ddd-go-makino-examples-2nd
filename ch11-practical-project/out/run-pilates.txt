@@ -1,0 +1,9 @@
+花子を待たずにキャンセル:
+{"kind":"conflict","message":"今の状態ではこの操作はできません"}
+409
+花子: confirmed
+太郎: rejected
+花子をキャンセル:
+{"status":"cancelled"}
+200
+太郎がもう一度: confirmed

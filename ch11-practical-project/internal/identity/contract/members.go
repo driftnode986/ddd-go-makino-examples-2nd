@@ -8,8 +8,12 @@ import (
 	"example.com/trainingbooking/internal/ids"
 )
 
+// #region member-reader
+
 // MemberReader は会員の有無を答える。Email などの個人情報は
 // 他のコンテキストに見せない。
 type MemberReader interface {
 	MemberExists(ctx context.Context, id ids.MemberID) (bool, error)
 }
+
+// #endregion

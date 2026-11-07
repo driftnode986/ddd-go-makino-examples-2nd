@@ -1,0 +1,7 @@
+cmd/api                              3.906s
+booking/application                  2.848s
+booking/domain                       0.329s
+booking/infrastructure/memory        0.380s
+booking/infrastructure/postgres      4.597s
+booking/presentation                 0.357s
+catalog/domain                       0.303s

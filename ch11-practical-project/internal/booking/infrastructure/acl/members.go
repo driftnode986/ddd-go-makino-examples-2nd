@@ -19,9 +19,13 @@ func NewMemberDirectory(
 	return &MemberDirectory{reader: reader}
 }
 
+// #region exists
+
 // Exists は会員がいれば true を返す。
 func (d *MemberDirectory) Exists(
 	ctx context.Context, id ids.MemberID,
 ) (bool, error) {
 	return d.reader.MemberExists(ctx, id)
 }
+
+// #endregion

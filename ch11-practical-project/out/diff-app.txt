@@ -1,0 +1,6 @@
+>   identityapp "…/identity/application"
+>   identitypg "…/identity/infrastructure/postgres"
+>   members := acl.NewMemberDirectory(identityapp.NewMemberReader(
+>       identitypg.NewMemberRepository(cfg.pool)))
+<           fixed.NewCoupons(), catalog),
+>           fixed.NewCoupons(), catalog, members),
