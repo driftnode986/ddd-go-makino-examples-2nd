@@ -177,7 +177,7 @@ func waitForLockWait(
 //  2. 確定の Save が予約を更新し、明細の削除で 1 を待つ
 //  3. 別の Tx が予約の行を更新しようとして 2 を待つ
 //
-// 先に待ち始めた確定の側が deadlock_timeout の後で中止される。
+// 別の Tx の deadlock_timeout を延ばしたので、確定の側が中止される。
 func TestRedeliveryRecoversFromDeadlock(t *testing.T) {
 	f := newFixture(t)
 	b := newBooking(t, ids.NewID[ids.MemberMarker](), true)
@@ -189,6 +189,11 @@ func TestRedeliveryRecoversFromDeadlock(t *testing.T) {
 		t.Fatalf("Begin: %v", err)
 	}
 	defer func() { _ = other.Rollback(context.Background()) }()
+	// この Tx の検査を遅らせ、中止される側を確定の Save に固定する。
+	_, err = other.Exec(ctx, `SET LOCAL deadlock_timeout = '30s'`)
+	if err != nil {
+		t.Fatalf("SET LOCAL: %v", err)
+	}
 	_, err = other.Exec(ctx, `SELECT 1 FROM booking_options
 		WHERE booking_id = $1 FOR UPDATE`, b.ID().String())
 	if err != nil {
