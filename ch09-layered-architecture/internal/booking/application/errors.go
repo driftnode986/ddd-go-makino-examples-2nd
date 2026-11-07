@@ -115,7 +115,7 @@ var storedErrors = []translation{
 
 // #region request-errors
 
-// requestErrors は参照する値に合わないか、要求自体の誤りである。
+// requestErrors は参照する値に合わないか、リクエストの誤りである。
 var requestErrors = []translation{
 	{
 		domain.ErrStartInPast, KindInvalid,
