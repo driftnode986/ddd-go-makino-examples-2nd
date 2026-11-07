@@ -94,22 +94,18 @@ sleep 1
 curl -s "$API/members/$TARO/bookings" | jq -c '.bookings[] | {status,total_yen,options}' | shape >out/run-coupon.txt
 
 # 満席とキャンセル
-FIRST=$(book "$HANAKO" "$PILATES")
 {
-	echo "花子を待たずにキャンセル:"
-	cancel "$FIRST"
+	FIRST=$(book "$HANAKO" "$PILATES")
 	echo "花子: $(wait_status "$HANAKO" "$FIRST")"
 	SECOND=$(book "$TARO" "$PILATES")
 	echo "太郎: $(wait_status "$TARO" "$SECOND")"
+	echo "太郎の rejected の予約をキャンセル:"
+	cancel "$SECOND"
 	echo "花子をキャンセル:"
 	cancel "$FIRST" | sed -E 's/"id":"[^"]*",?//'
 	THIRD=$(book "$TARO" "$PILATES")
 	echo "太郎がもう一度: $(wait_status "$TARO" "$THIRD")"
 } | shape >out/run-pilates.txt
-if ! grep -q '^409$' out/run-pilates.txt; then
-	echo "待たずにキャンセルが通りました。もう一度実行してください" >&2
-	exit 1
-fi
 
 # 同期で拒否するもの
 {
@@ -123,7 +119,8 @@ fi
 	curl -s -w '%{http_code}\n' "$API/members/$ghost/bookings"
 } | shape >out/run-rejected.txt
 
-psql_run -c "SELECT event_type, sequence AS seq, attempts, published_at IS NOT NULL AS published FROM outbox ORDER BY id" |
+psql_run -c "SELECT event_type, sequence AS seq, attempts,
+     published_at IS NOT NULL AS published FROM outbox ORDER BY id" |
 	sed '$d' | sed '$d' | shape >out/run-outbox.txt
 
 stop
@@ -134,7 +131,7 @@ go tool covdata textfmt -i="$work/cov" -o "$work/cov.txt"
 go tool cover -func="$work/cov.txt" |
 	sed -E 's|example.com/trainingbooking/internal/||; s|:[0-9]+:[[:space:]]+| |; s|[[:space:]]+| |g' >"$work/f.txt"
 # 流れの部品。名前の重複は親のファイルで絞る。
-pick() { grep -E "^$1 ($2) " "$work/f.txt" | awk '$3!="0.0%"{n=split($1,p,"/"); printf "%-20s %-20s %s\n", p[n], $2, $3}'; }
+pick() { grep -E "^$1 ($2) " "$work/f.txt" | awk '{n=split($1,p,"/"); printf "%-20s %-20s %s\n", p[n], $2, $3}'; }
 {
 	pick identity/domain/email.go 'NewEmail'
 	pick identity/domain/member.go 'NewMember|ReconstructMember'
@@ -149,16 +146,22 @@ pick() { grep -E "^$1 ($2) " "$work/f.txt" | awk '$3!="0.0%"{n=split($1,p,"/"); 
 	pick booking/application/cancel_booking.go 'Execute'
 	pick platform/outbox/store.go 'Append'
 	pick platform/outbox/relay.go 'RunOnce'
-	pick platform/outbox/processed.go 'MarkProcessed'
+	# 同じ名前の in-memory の実装（テスト用）が後に並ぶので、先頭だけを載せる
+	pick platform/outbox/processed.go 'MarkProcessed' | head -n 1
 } | shape >out/coverage-parts.txt
-# domain で一度も通らなかったもの。
-grep -E '^(booking|catalog|identity)/domain/.* 0\.0%$' "$work/f.txt" |
-	awk '{n=split($1,p,"/"); printf "%-20s %s\n", p[n], $2}' | shape >out/coverage-zero.txt
-
-# テストの層ごとの時間（手元の一例）。統合テストは Docker を使う。
-go test -tags=integration -count=1 ./cmd/... ./internal/booking/... ./internal/catalog/domain/ 2>&1 |
-	grep -E '^ok' | grep -E 'booking/domain|booking/application|booking/presentation|booking/infrastructure/(memory|postgres)|catalog/domain|cmd/api' |
-	sed -E 's|example.com/trainingbooking/||; s|internal/||; s|^ok[[:space:]]+||' | awk '{printf "%-36s %s\n",$1,$2}' | shape >out/test-layers.txt
+# パッケージごとの時間（手元の一例）。コンテナを起動するかで大きく変わる。
+times() {
+	grep -E '^ok' | grep -E 'booking/domain|booking/application|booking/infrastructure/postgres|cmd/api' |
+		sed -E 's|example.com/trainingbooking/||; s|internal/||; s|^ok[[:space:]]+||' | awk '{printf "  %-34s %s\n",$1,$2}'
+}
+{
+	echo "go test ./..."
+	go test -count=1 ./cmd/... ./internal/booking/... 2>&1 | times
+	echo "go test -tags=integration ./..."
+	go test -tags=integration -count=1 ./cmd/... ./internal/booking/... 2>&1 | times
+} | shape >out/test-layers.txt
+# ディレクトリの構成。
+find cmd internal -maxdepth 2 -type d | sort | awk -F/ '{printf "%*s%s/\n", (NF-1)*2, "", $NF}' | shape >out/tree.txt
 make -s down >/dev/null 2>&1
 unset POSTGRES_PORT DATABASE_URL ADDR API
 rm -rf "$work" "$log"

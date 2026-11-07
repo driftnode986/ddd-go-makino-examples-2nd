@@ -15,22 +15,36 @@ post() {
 }
 
 # 予約を送り、受け付けた予約の id だけを表示する。
+# 受け付けられなければ、応答を標準エラーに出して失敗する。
 book() {
-  post "$@" | head -n 1 | jq -r .id
+  body=$(post "$@" | head -n 1)
+  echo "$body" | jq -er '.id // empty' || {
+    echo "予約できません: $body" >&2
+    return 1
+  }
 }
 
 # #region wait-status
-# pending でなくなるまで最大10秒待ち、状態を表示する。
+# pending でなくなるまで 0.2 秒おきに50回確かめ、状態を表示する。
+# 取得の失敗、予約が無いとき、pending のままのときは失敗を返す。
 # $1=会員 $2=予約
 wait_status() {
   for i in $(seq 50); do
-    state=$(curl -s "$API/members/$1/bookings" |
-      jq -r --arg id "$2" \
-        '.bookings[] | select(.id == $id) | .status')
-    [ "$state" != pending ] && break
+    body=$(curl -fsS --max-time 2 "$API/members/$1/bookings") ||
+      return 1
+    state=$(echo "$body" | jq -er --arg id "$2" \
+      '.bookings[] | select(.id == $id) | .status') || {
+      echo "予約がありません: $2" >&2
+      return 1
+    }
+    if [ "$state" != pending ]; then
+      echo "$state"
+      return 0
+    fi
     sleep 0.2
   done
-  echo "$state"
+  echo "pending のままです: $2" >&2
+  return 1
 }
 # #endregion
 

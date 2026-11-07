@@ -26,9 +26,9 @@ make seed    # 会員とレッスンの初期データを入れる
 make run     # API と配信処理を1つのプロセスで起動する
 ```
 
-止めるときは `make run` のターミナルで Ctrl+C を押します。処理中のリクエストを待ち、配信処理を止めてから終わります。`go run` の終了コードは 1 になります。ビルドしたものに SIGTERM を送るときの動きは第9章と第10章を参照してください（`go run` は SIGTERM をサーバーに渡しません）。
+止めるときは `make run` のターミナルで Ctrl+C を押します。処理中のリクエストを待ち、配信処理を止めてから終わります。止まったことはログの `shutting down` とプロセスの終了で確かめます（手元では `go run` の終了コードが 1 になり、`make` がエラーを表示しました）。ビルドしたものに SIGTERM を送るときの動きは第9章と第10章を参照してください（`go run` は SIGTERM をサーバーに渡しません）。
 
-接続先は `postgres://dev:dev@localhost:5432/trainingbooking` です。別の章で PostgreSQL を起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` と `DATABASE_URL` を指定します。待ち受けるアドレスの既定は `localhost:8080` です。別のプロセスが使っているときは `ADDR=localhost:18080 make run` のように変え、手順を実行するターミナルでも `export API=localhost:18080` を `scripts/try.sh` の前に実行します。先に空いていることを確かめないと、`curl` が別のサーバーに届きます。
+接続先は `postgres://dev:dev@localhost:5432/trainingbooking` です。別の章で PostgreSQL を起動したままのときは、その章のディレクトリで `make down` を実行してから起動します。ポートを変えるときは環境変数 `POSTGRES_PORT` と `DATABASE_URL` を指定します。待ち受けるアドレスの既定は `localhost:8080` です。別のプロセスが使っているときは `ADDR=localhost:18080 make run` のように変え、手順を実行するターミナルでも `export API=localhost:18080` を `scripts/try.sh` の前に実行します。先に `lsof -i :8080` で空いていることを確かめます。使われていると、`curl` が別のサーバーに届きます。
 
 初期データのレッスンの日時は、初めて `make seed` を実行した日の30日後です。もう一度実行しても日時は変わりません。日が過ぎて予約できなくなったら `make reset` で作り直します（予約も消えます）。
 
@@ -40,7 +40,7 @@ make run     # API と配信処理を1つのプロセスで起動する
 
 ## 端から端まで動かす
 
-別のターミナルで、変数と関数を読み込みます。手順は上から順に実行します。やり直すときは `make reset` で初期データに戻します（同じ予約を送ると、時間帯の重なりで `409` になります）。
+別のターミナルで、変数と関数を読み込みます。手順は上から順に実行します。やり直すときは `make reset` で初期データに戻し、最初の花子の予約から進めます（同じ予約を送ると、時間帯の重なりで `409` になります）。
 
 席の確保と確定は配信処理が後から行います。予約の応答は `pending` なので、次へ進む前に `wait_status` で状態が変わるのを待ちます。
 
@@ -76,28 +76,22 @@ curl -s "$API/members/$TARO/bookings" | jq -c '.bookings[]'
 
 ### 満席とキャンセル
 
-定員1のレッスンで確かめます。花子が予約し、確定を待たずにキャンセルすると `409` です。キャンセルできるのは `confirmed` だけです（配信が先に終わると、まれにキャンセルが通ります。そのときは `make reset` からやり直してください）。
+定員1のレッスンで確かめます。どの速さで打っても同じ結果になるように、状態が変わるのを `wait_status` で待ってから次へ進みます。
 
 ```bash
 FIRST=$(book "$HANAKO" "$PILATES")
-cancel "$FIRST"
 wait_status "$HANAKO" "$FIRST"
-```
-
-最後に `confirmed` と表示されます。同じレッスンを太郎が予約すると、`201` が返った後で `rejected` になります。
-
-```bash
 SECOND=$(book "$TARO" "$PILATES")
 wait_status "$TARO" "$SECOND"
-```
-
-花子の予約をキャンセルすると席が戻り、太郎がもう一度予約すると `confirmed` になります。
-
-```bash
+cancel "$SECOND"
 cancel "$FIRST"
 THIRD=$(book "$TARO" "$PILATES")
 wait_status "$TARO" "$THIRD"
 ```
+
+花子は `confirmed`、太郎は `201` が返った後で `rejected` です。`rejected` の予約のキャンセルは `409` です。花子の予約をキャンセルすると席が戻り、太郎がもう一度予約すると `confirmed` になります。
+
+`pending` の予約のキャンセルも `409` です（`TestCancel_PendingIsConflict`）。手順に入れていないのは、配信が短い時間で終わるので、手で打つと確定が先に済んでキャンセルが通るからです。
 
 ### 同期で拒否するもの
 

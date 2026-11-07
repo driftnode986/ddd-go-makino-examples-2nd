@@ -1,0 +1,26 @@
+cmd/
+  api/
+  seed/
+internal/
+  booking/
+    application/
+    contract/
+    domain/
+    infrastructure/
+    presentation/
+  catalog/
+    application/
+    contract/
+    domain/
+    infrastructure/
+  identity/
+    application/
+    contract/
+    domain/
+    infrastructure/
+  ids/
+  platform/
+    dbtest/
+    logging/
+    outbox/
+    txn/

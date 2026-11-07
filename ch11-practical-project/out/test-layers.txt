@@ -1,7 +1,10 @@
-cmd/api                              3.906s
-booking/application                  2.848s
-booking/domain                       0.329s
-booking/infrastructure/memory        0.380s
-booking/infrastructure/postgres      4.597s
-booking/presentation                 0.357s
-catalog/domain                       0.303s
+go test ./...
+  cmd/api                            0.440s
+  booking/application                0.355s
+  booking/domain                     0.357s
+  booking/infrastructure/postgres    0.354s
+go test -tags=integration ./...
+  cmd/api                            5.076s
+  booking/application                3.949s
+  booking/domain                     0.332s
+  booking/infrastructure/postgres    5.763s

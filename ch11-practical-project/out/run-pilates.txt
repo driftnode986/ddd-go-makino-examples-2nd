@@ -1,8 +1,8 @@
-花子を待たずにキャンセル:
-{"kind":"conflict","message":"今の状態ではこの操作はできません"}
-409
 花子: confirmed
 太郎: rejected
+太郎の rejected の予約をキャンセル:
+{"kind":"conflict","message":"今の状態ではこの操作はできません"}
+409
 花子をキャンセル:
 {"status":"cancelled"}
 200
