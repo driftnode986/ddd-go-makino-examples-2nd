@@ -1,0 +1,1 @@
+interface method must have no type parameters

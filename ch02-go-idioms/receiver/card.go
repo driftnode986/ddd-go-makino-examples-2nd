@@ -2,7 +2,9 @@
 // 値レシーバ、状態を持つ型はポインタレシーバにそろえる。
 package receiver
 
-// Points は値オブジェクトの例である。計算は新しい値を返す。
+// #region points
+
+// Points は作った後に変わらない値である。計算は新しい値を返す。
 type Points struct {
 	n int
 }
@@ -18,13 +20,19 @@ func (p Points) Add(other Points) Points {
 // Count は値を返す。getter の名前に Get を付けない。
 func (p Points) Count() int { return p.n }
 
-// Card は状態を持つ型の例である。
+// #endregion
+
+// #region card
+
+// Card は状態が変わっていく型である。
 type Card struct {
 	balance Points
 }
 
-// Charge は残高を増やす。ポインタレシーバなので呼び出し元に効く。
+// Charge は残高を増やす。呼び出し元の Card が変わる。
 func (c *Card) Charge(p Points) { c.balance = c.balance.Add(p) }
 
-// Balance は残高を返す。
+// Balance は残高を返す。読むだけでもレシーバをそろえる。
 func (c *Card) Balance() Points { return c.balance }
+
+// #endregion

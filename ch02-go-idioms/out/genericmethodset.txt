@@ -1,0 +1,6 @@
+main.go:13:20: cannot use generics.NewCache() (value of type
+*generics.Cache) as intGetter value in variable declaration:
+*generics.Cache does not implement intGetter (wrong type for method
+Get)
+        have Get[T any](string) (T, error)
+        want Get(string) (int, error)

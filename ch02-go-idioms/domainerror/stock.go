@@ -6,8 +6,14 @@ import (
 	"fmt"
 )
 
+// #region sentinel
+
 // ErrSoldOut は判定に種類だけが要るときの sentinel である。
 var ErrSoldOut = errors.New("sold out")
+
+// #endregion
+
+// #region typed
 
 // ShortageError は不足数も伝えたいときの型つきエラーである。
 type ShortageError struct {
@@ -20,6 +26,10 @@ func (e *ShortageError) Error() string {
 	return fmt.Sprintf("want %d, have %d", e.Want, e.Have)
 }
 
+// #endregion
+
+// #region stock
+
 // Stock は在庫である。
 type Stock struct {
 	count int
@@ -28,7 +38,7 @@ type Stock struct {
 // NewStock は在庫を作る。
 func NewStock(count int) *Stock { return &Stock{count: count} }
 
-// Take は在庫を減らす。失敗は例外でなく戻り値で返す。
+// Take は在庫を減らす。失敗は戻り値で返す。
 func (s *Stock) Take(n int) error {
 	if s.count == 0 {
 		return fmt.Errorf("take %d: %w", n, ErrSoldOut)
@@ -39,3 +49,5 @@ func (s *Stock) Take(n int) error {
 	s.count -= n
 	return nil
 }
+
+// #endregion

@@ -1,0 +1,13 @@
+// わざとコンパイルできないコード。インターフェースのメソッドに
+// 型引数を書く。
+package main
+
+// #region decl
+
+type getter interface {
+	Get[T any](key string) (T, error)
+}
+
+// #endregion
+
+func main() {}

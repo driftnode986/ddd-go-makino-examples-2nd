@@ -1,0 +1,4 @@
+main.go:17:28: cannot use failing{…} (value of struct type failing)
+as wideinterface.Notifier value in argument to
+wideinterface.NewReminder: failing does not implement
+wideinterface.Notifier (missing method Reset)

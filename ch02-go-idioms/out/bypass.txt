@@ -1,0 +1,2 @@
+Take(5) の err = shortage, Count = 2
+SetCount の後の Count = -3

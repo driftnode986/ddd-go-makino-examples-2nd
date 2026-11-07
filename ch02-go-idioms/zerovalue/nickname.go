@@ -7,10 +7,16 @@ import "errors"
 // ErrInvalid は不正な値を表す。
 var ErrInvalid = errors.New("invalid value")
 
+// #region public
+
 // PublicPoints はフィールドが公開なので、負の値も書き込める。
 type PublicPoints struct {
 	Balance int
 }
+
+// #endregion
+
+// #region nickname
 
 // Nickname は非公開フィールドで値を包む。
 type Nickname struct {
@@ -28,7 +34,11 @@ func NewNickname(s string) (Nickname, error) {
 // IsZero は NewNickname を通していないとき true を返す。
 func (n Nickname) IsZero() bool { return n.value == "" }
 
-// Profile は Nickname を受け取る側である。
+// #endregion
+
+// #region profile
+
+// Profile は Nickname を受け取って保持する側である。
 type Profile struct {
 	nickname Nickname
 }
@@ -40,3 +50,5 @@ func NewProfile(n Nickname) (*Profile, error) {
 	}
 	return &Profile{nickname: n}, nil
 }
+
+// #endregion

@@ -1,0 +1,3 @@
+err = take 1: sold out
+err == ErrSoldOut: false
+errors.Is: true

@@ -4,12 +4,13 @@
 
 ## 例の一覧
 
-- `smallinterface/` 小さい interface は interface の大きさの話で、struct のメソッド数の話ではないこと。依存をコンストラクタで受け取る形
+- `smallinterface/` 小さいインターフェースはインターフェースの大きさの話で、構造体のメソッド数の話ではないこと。インターフェースを使う側に置き、依存をコンストラクタで受け取る形
 - `zerovalue/` 公開フィールドと非公開フィールドの違い。非公開でもゼロ値は作れるので、受け取る側で止めること
 - `domainerror/` sentinel と型つきエラー。`errors.Is` と `errors.AsType` での判定
-- `receiver/` 値レシーバとポインタレシーバ。値で渡すとコピーにメソッドが効くこと。getter の名前
-- `dto/` 非公開フィールドだけの struct を Encode すると `{}` になること。DTO を分ける形
-- `generics/` Go 1.27 のジェネリックメソッドと、interface の実装に数えられないこと
+- `receiver/` 値レシーバとポインタレシーバ。getter の名前
+- `generics/` Go 1.27 のジェネリックメソッドと、インターフェースで差し替えられないこと
+- `steps/` 失敗を見せるコード。`steps/testdata` はわざとコンパイルできないコードです
+- `out/` 本に載せた実行結果。`bash out/regen.sh` で作り直せます
 
 ## 動かし方
 
@@ -24,10 +25,10 @@ go test ./...
 
 ```text
 ok  	example.com/trainingbooking/domainerror
-ok  	example.com/trainingbooking/dto
 ok  	example.com/trainingbooking/generics
 ok  	example.com/trainingbooking/receiver
-ok  	example.com/trainingbooking/smallinterface
+ok  	example.com/trainingbooking/smallinterface/reminder
+ok  	example.com/trainingbooking/steps/setterstock/service
 ok  	example.com/trainingbooking/zerovalue
 ```
 
