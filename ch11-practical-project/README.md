@@ -21,10 +21,12 @@ golangci-lint run ./...
 Docker と `jq` が要ります。
 
 ```bash
-make up      # PostgreSQL を起動し、初回はスキーマを流す
-make seed    # 会員とレッスンの初期データを入れる
-make run     # API と配信処理を1つのプロセスで起動する
+make up
+make seed
+make run
 ```
+
+`make up` は PostgreSQL を起動し、初回はスキーマを流します。`make seed` は会員とレッスンの初期データを入れます。`make run` は API と配信処理を1つのプロセスで起動します。
 
 止めるときは `make run` のターミナルで Ctrl+C を押します。処理中のリクエストを待ち、配信処理を止めてから終わります。止まったことはログの `shutting down` とプロセスの終了で確かめます（手元では `go run` の終了コードが 1 になり、`make` がエラーを表示しました）。ビルドしたものに SIGTERM を送るときの動きは第9章と第10章を参照してください（`go run` は SIGTERM をサーバーに渡しません）。
 
@@ -95,12 +97,11 @@ wait_status "$TARO" "$THIRD"
 
 ### 同期で拒否するもの
 
+順に、花子が朝のヨガと同じ時間帯を予約する（`409`）、存在しない会員（`400`）、不明なクーポンのコード（`400`）です。
+
 ```bash
-# 花子は朝のヨガと同じ時間帯を予約できない → 409
 post "$HANAKO" "$STRENGTH"
-# 存在しない会員 → 400
 post 0196f5a0-0000-7000-8000-00000000ffff "$YOGA"
-# 不明なクーポンのコード → 400
 post "$TARO" "$STRENGTH" '"coupon_code":"UNKNOWN"'
 ```
 
@@ -113,12 +114,16 @@ post "$TARO" "$STRENGTH" '"coupon_code":"UNKNOWN"'
 ## やり直す
 
 ```bash
-make reset   # データを消して、起動と初期データの投入をやり直す
-make down    # 停止してデータも消す
+make reset
+make down
 ```
+
+`make reset` はデータを消して、起動と初期データの投入をやり直します。`make down` は停止してデータも消します。
 
 ## 生成
 
 ```bash
-make sqlc    # queries.sql からコードを生成する
+make sqlc
 ```
+
+`queries.sql` からコードを生成します。

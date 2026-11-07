@@ -64,7 +64,7 @@ diff ../ch10-bounded-context/cmd/api/app.go cmd/api/app.go | grep -E '^[<>]' |
 go build -o "$work/api11" ./cmd/api
 start "$work/api11"
 {
-	psql_run -c "INSERT INTO members (id, email, name) VALUES ('0196f5a0-0000-7000-8000-000000000009', 'hanako', '花子')" | sed '$d'
+	psql_run -c "INSERT INTO members (id, email, name) VALUES ('0196f5a0-0000-7000-8000-000000000009', 'hanako', '花子')"
 	post 0196f5a0-0000-7000-8000-000000000009 "$YOGA"
 } | shape >out/bad-seed.txt
 sleep 0.2
@@ -148,6 +148,7 @@ pick() { grep -E "^$1 ($2) " "$work/f.txt" | awk '{n=split($1,p,"/"); printf "%-
 	pick platform/outbox/relay.go 'RunOnce'
 	# 同じ名前の in-memory の実装（テスト用）が後に並ぶので、先頭だけを載せる
 	pick platform/outbox/processed.go 'MarkProcessed' | head -n 1
+	grep '^total:' "$work/f.txt" | awk '{printf "%-20s %-20s %s\n", "total", "", $NF}'
 } | shape >out/coverage-parts.txt
 # パッケージごとの時間（手元の一例）。コンテナを起動するかで大きく変わる。
 times() {

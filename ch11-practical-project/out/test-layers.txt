@@ -1,10 +1,10 @@
 go test ./...
-  cmd/api                            0.440s
-  booking/application                0.355s
-  booking/domain                     0.357s
-  booking/infrastructure/postgres    0.354s
+  cmd/api                            0.368s
+  booking/application                0.275s
+  booking/domain                     0.279s
+  booking/infrastructure/postgres    0.274s
 go test -tags=integration ./...
-  cmd/api                            5.076s
-  booking/application                3.949s
-  booking/domain                     0.332s
-  booking/infrastructure/postgres    5.763s
+  cmd/api                            3.784s
+  booking/application                2.749s
+  booking/domain                     0.249s
+  booking/infrastructure/postgres    4.476s

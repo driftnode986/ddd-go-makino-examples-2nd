@@ -26,3 +26,4 @@ cancel_booking.go    Execute              85.7%
 store.go             Append               75.0%
 relay.go             RunOnce              58.8%
 processed.go         MarkProcessed        71.4%
+total                                     70.8%
