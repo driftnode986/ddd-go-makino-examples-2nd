@@ -162,7 +162,17 @@ times() {
 	go test -tags=integration -count=1 ./cmd/... ./internal/booking/... 2>&1 | times
 } | shape >out/test-layers.txt
 # ディレクトリの構成。
-find cmd internal -maxdepth 2 -type d | sort | awk -F/ '{printf "%*s%s/\n", (NF-1)*2, "", $NF}' | shape >out/tree.txt
+tree_line() { # ディレクトリと、その直下のディレクトリを1行に並べる
+	printf '%s %s\n' "$1" "$(find "$2" -mindepth 1 -maxdepth 1 -type d | sed 's|.*/||' | sort | tr '\n' ' ')"
+}
+{
+	tree_line cmd/ cmd
+	echo "internal/"
+	for c in booking catalog identity platform; do
+		tree_line "  $c/" "internal/$c"
+	done
+	echo "  ids/"
+} | sed 's/ *$//' | shape >out/tree.txt
 make -s down >/dev/null 2>&1
 unset POSTGRES_PORT DATABASE_URL ADDR API
 rm -rf "$work" "$log"

@@ -1,26 +1,7 @@
-cmd/
-  api/
-  seed/
+cmd/ api seed
 internal/
-  booking/
-    application/
-    contract/
-    domain/
-    infrastructure/
-    presentation/
-  catalog/
-    application/
-    contract/
-    domain/
-    infrastructure/
-  identity/
-    application/
-    contract/
-    domain/
-    infrastructure/
+  booking/ application contract domain infrastructure presentation
+  catalog/ application contract domain infrastructure
+  identity/ application contract domain infrastructure
+  platform/ dbtest logging outbox txn
   ids/
-  platform/
-    dbtest/
-    logging/
-    outbox/
-    txn/
