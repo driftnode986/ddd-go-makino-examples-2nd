@@ -31,6 +31,8 @@ func TestRecovery_PanicAfterWriteAbortsResponse(t *testing.T) {
 	if _, err := io.ReadAll(resp.Body); err == nil {
 		t.Error("本文が正常に終わった")
 	}
+	// ログはサーバーの goroutine が書く。Close で処理の終了を待ってから読む
+	ts.Close()
 	if !strings.Contains(buf.String(), `"msg":"panic"`) {
 		t.Errorf("ログ = %s", buf.String())
 	}
